@@ -1,913 +1,482 @@
 <!DOCTYPE html>
-<html lang="vi" class="h-full bg-slate-900 text-slate-100">
+<html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anki SRS - Tiếng Trung Phồn Thể (zh-TW)</title>
-  <!-- Tailwind CSS -->
+  <title>Anki Spaced Repetition - Tiếng Trung Phồn Thể</title>
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Phosphor Icons -->
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  <!-- Firebase JS SDK (v10 Compat CDN) -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <!-- Firebase App & Realtime Database CDN -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
-    /* Custom Scrollbars */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #0f172a;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #334155;
-      border-radius: 9999px;
-    }
+    .perspective { perspective: 1000px; }
+    .transform-style-3d { transform-style: preserve-3d; }
+    .backface-hidden { backface-visibility: hidden; }
+    .rotate-y-180 { transform: rotateY(180deg); }
   </style>
 </head>
-<body class="h-full flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans pb-12">
 
-  <!-- Top Navigation Header -->
-  <header class="bg-slate-800 border-b border-slate-700/80 sticky top-0 z-30 shadow-md">
-    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/30">
-          繁
-        </div>
-        <div>
-          <h1 class="font-bold text-lg text-slate-100 leading-tight">Flashcard SRS Phồn Thể</h1>
-          <p class="text-xs text-slate-400 flex items-center gap-1.5">
-            <span id="syncStatusBadge" class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span id="syncStatusText" class="font-medium text-emerald-400">Đang kết nối Cloud...</span>
-          </p>
-        </div>
+  <!-- Navigation Bar -->
+  <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 shadow-md">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <i data-lucide="brain-circuit" class="text-indigo-400 w-6 h-6"></i>
+        <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+          Chinese SRS Flashcard
+        </h1>
       </div>
-
-      <!-- Quick Action Buttons -->
-      <div class="flex items-center space-x-2">
-        <button id="toggleAutoTTSBtn" onclick="toggleAutoTTS()" title="Tự động phát âm thanh" class="p-2.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-amber-400 transition-colors">
-          <i id="autoTTSIcon" class="ph-bold ph-speaker-high text-lg text-amber-400"></i>
-        </button>
-        <button onclick="switchTab('settings')" title="Cấu hình Firebase" class="p-2.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 transition-colors">
-          <i class="ph-bold ph-gear text-lg"></i>
+      <div class="flex items-center gap-2">
+        <span id="sync-status" class="text-xs px-2.5 py-1 rounded-full bg-slate-700 text-slate-300 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          Đang kết nối...
+        </span>
+        <button onclick="toggleModal(true)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-lg flex items-center gap-1 transition">
+          <i data-lucide="plus" class="w-4 h-4"></i> Thêm Thẻ
         </button>
       </div>
-    </div>
-
-    <!-- Navigation Tabs -->
-    <div class="max-w-4xl mx-auto px-4 flex border-t border-slate-700/50">
-      <button onclick="switchTab('study')" id="tabBtnStudy" class="flex-1 py-3 px-2 text-center text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center justify-center gap-2 transition-all">
-        <i class="ph-bold ph-cards text-base"></i> Ôn tập <span id="dueBadge" class="ml-1 px-2 py-0.5 text-xs bg-indigo-500/20 text-indigo-300 rounded-full">0</span>
-      </button>
-      <button onclick="switchTab('manage')" id="tabBtnManage" class="flex-1 py-3 px-2 text-center text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2 transition-all">
-        <i class="ph-bold ph-list-plus text-base"></i> Quản lý thẻ (<span id="totalCardsCount">0</span>)
-      </button>
-      <button onclick="switchTab('settings')" id="tabBtnSettings" class="flex-1 py-3 px-2 text-center text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2 transition-all">
-        <i class="ph-bold ph-cloud-arrow-up text-base"></i> Đồng bộ Cloud
-      </button>
     </div>
   </header>
 
-  <!-- Main Content Container -->
-  <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 overflow-y-auto">
+  <!-- Main Container -->
+  <main class="max-w-4xl mx-auto px-4 py-6 space-y-6">
 
-    <!-- Toast Notification Container -->
-    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
-
-    <!-- TAB 1: STUDY AREA -->
-    <section id="tabStudy" class="h-full flex flex-col items-center justify-center min-h-[480px]">
-      
-      <!-- Empty State -->
-      <div id="noCardsContainer" class="hidden text-center py-12 px-6 bg-slate-800/40 rounded-2xl border border-slate-700/50 max-w-md w-full">
-        <div class="w-16 h-16 mx-auto mb-4 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center text-3xl">
-          <i class="ph-bold ph-check-circle"></i>
-        </div>
-        <h3 class="text-xl font-bold text-slate-200 mb-2">Đã hoàn thành bài học!</h3>
-        <p class="text-slate-400 text-sm mb-6">Hiện tại không còn thẻ nào đến lịch ôn tập. Hãy thêm thẻ mới hoặc quay lại sau!</p>
-        <button onclick="switchTab('manage'); openAddCardModal()" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2">
-          <i class="ph-bold ph-plus-circle text-lg"></i> Thêm Thẻ Mới
-        </button>
+    <!-- Flashcard Review Mode Section -->
+    <section class="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-semibold text-slate-200 flex items-center gap-2">
+          <i data-lucide="flame" class="text-orange-400 w-5 h-5"></i>
+          Ôn Tập Hôm Nay (<span id="due-count" class="text-indigo-400 font-bold">0</span>)
+        </h2>
+        <div class="text-xs text-slate-400" id="card-progress">0 / 0</div>
       </div>
 
-      <!-- Active Study Card Container -->
-      <div id="studyCardContainer" class="w-full max-w-xl flex flex-col items-center gap-6">
-        
-        <!-- Progress Bar & Deck Info -->
-        <div class="w-full flex items-center justify-between text-xs text-slate-400 font-medium px-1">
-          <span id="cardProgressText">Thẻ 1 / 1</span>
-          <span id="nextDueTimer" class="bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700">Đang ôn tập</span>
+      <!-- Card Display Container -->
+      <div id="review-container" class="min-h-[300px] flex flex-col justify-center items-center">
+        <!-- Empty State -->
+        <div id="empty-state" class="text-center py-12 hidden">
+          <i data-lucide="check-circle-2" class="w-16 h-16 text-emerald-400 mx-auto mb-3 opacity-80"></i>
+          <p class="text-slate-300 font-medium text-lg">Tuyệt vời! Bạn đã hoàn thành bài ôn tập hôm nay.</p>
+          <p class="text-slate-500 text-sm mt-1">Hãy thêm thẻ mới hoặc quay lại vào ngày mai.</p>
         </div>
 
-        <!-- The Interactive Flashcard -->
-        <div id="flashcard" onclick="flipCard()" class="w-full min-h-[360px] sm:min-h-[400px] bg-slate-800 border border-slate-700/80 rounded-2xl p-6 sm:p-8 flex flex-col justify-between cursor-pointer shadow-xl hover:border-slate-600 transition-all relative overflow-hidden group">
-          
-          <!-- Background Subtle Decoration -->
-          <div class="absolute -right-10 -bottom-10 text-slate-700/10 text-9xl font-bold select-none pointer-events-none">
-            繁
-          </div>
-
-          <!-- Top Card Controls -->
-          <div class="flex items-center justify-end w-full z-10">
-            <button onclick="event.stopPropagation(); speakText(currentCard.text)" class="p-2.5 rounded-full bg-slate-700/50 hover:bg-indigo-600 hover:text-white text-slate-300 transition-all shadow-md" title="Đọc chữ Phồn Thể">
-              <i class="ph-bold ph-speaker-high text-xl"></i>
-            </button>
-          </div>
-
-          <!-- Card Content Center -->
-          <div class="my-auto py-4 text-center z-10 w-full flex flex-col items-center justify-center gap-4">
+        <!-- Active Flashcard -->
+        <div id="flashcard" class="w-full max-w-lg cursor-pointer hidden select-none" onclick="flipCard()">
+          <div id="card-inner" class="bg-slate-700/60 border border-slate-600 rounded-2xl p-6 min-h-[260px] flex flex-col justify-between shadow-lg transition-all duration-300">
             
-            <!-- Traditional Chinese Text -->
-            <h2 id="cardText" class="text-3xl sm:text-4xl font-extrabold text-slate-50 tracking-wide leading-relaxed">
-              是白鷺鷥嗎？隨便啦，亂講一個
-            </h2>
-
-            <!-- Pinyin Display -->
-            <div id="cardPinyinContainer" class="mt-1">
-              <p id="cardPinyin" class="text-lg font-medium text-amber-400/90 tracking-wider">
-                shì bái lù sī ma? suí biàn la, luàn jiǎng yī gè
+            <!-- Front of Card -->
+            <div id="card-front" class="space-y-4">
+              <div class="flex justify-between items-start">
+                <span class="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-900/60 text-indigo-300 border border-indigo-700/50">Phồn thể</span>
+                <button onclick="event.stopPropagation(); speakCurrent()" class="p-2 hover:bg-slate-600/50 rounded-full text-indigo-400 transition" title="Nghe phát âm">
+                  <i data-lucide="volume-2" class="w-5 h-5"></i>
+                </button>
+              </div>
+              <div class="text-center py-4">
+                <h3 id="front-text" class="text-3xl font-bold text-white tracking-wide"></h3>
+              </div>
+              <p class="text-center text-xs text-slate-400 flex items-center justify-center gap-1">
+                <i data-lucide="rotate-cw" class="w-3 h-3"></i> Bấm để lật thẻ
               </p>
             </div>
 
-            <!-- Back Content (Hidden initially until flipped) -->
-            <div id="cardBackContent" class="hidden w-full border-t border-slate-700/80 pt-6 mt-4 flex flex-col items-center gap-4 animate-fade-in">
-              <!-- Vietnamese Translation -->
-              <p id="cardVietnamese" class="text-xl sm:text-2xl font-bold text-emerald-400 leading-snug">
-                Có phải con cò bợ không? Tùy đi, nói đại một cái vậy.
-              </p>
-
-              <!-- Context Image Screenshot Preview (If available) -->
-              <div id="cardImageWrapper" class="hidden mt-2 max-h-48 overflow-hidden rounded-xl border border-slate-700 shadow-lg">
-                <img id="cardImage" src="" alt="Context screenshot" class="object-cover max-h-48 w-auto">
+            <!-- Back of Card (Hidden by default) -->
+            <div id="card-back" class="space-y-4 border-t border-slate-600/80 pt-4 mt-4 hidden">
+              <div>
+                <p class="text-xs text-slate-400">Pinyin:</p>
+                <p id="back-pinyin" class="text-lg font-medium text-amber-300"></p>
+              </div>
+              <div>
+                <p class="text-xs text-slate-400">Nghĩa tiếng Việt:</p>
+                <p id="back-meaning" class="text-base text-emerald-300 font-medium"></p>
+              </div>
+              <div id="context-image-container" class="hidden">
+                <img id="context-image" class="w-full max-h-48 object-cover rounded-lg border border-slate-600" src="" alt="Context">
               </div>
             </div>
 
           </div>
-
-          <!-- Card Footer Hint -->
-          <div class="text-center z-10">
-            <span id="flipHint" class="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-slate-400 transition-colors">
-              Nhấp vào thẻ để mở đáp án
-            </span>
-          </div>
-        </div>
-
-        <!-- Rating Buttons (SM-2 SRS) -->
-        <div id="srsRatingButtons" class="hidden grid grid-cols-4 gap-2.5 sm:gap-4 w-full">
-          <button onclick="rateCard(1)" class="flex flex-col items-center justify-center p-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/50 text-red-400 rounded-xl transition-all shadow-md group">
-            <span class="font-bold text-sm">Chưa nhớ</span>
-            <span class="text-[11px] opacity-75 mt-0.5">1 phút</span>
-          </button>
-          <button onclick="rateCard(2)" class="flex flex-col items-center justify-center p-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/50 text-amber-400 rounded-xl transition-all shadow-md group">
-            <span class="font-bold text-sm">Khó</span>
-            <span class="text-[11px] opacity-75 mt-0.5">1 ngày</span>
-          </button>
-          <button onclick="rateCard(3)" class="flex flex-col items-center justify-center p-3 bg-blue-950/40 hover:bg-blue-900/60 border border-blue-800/50 text-blue-400 rounded-xl transition-all shadow-md group">
-            <span class="font-bold text-sm">Tốt</span>
-            <span class="text-[11px] opacity-75 mt-0.5">3 ngày</span>
-          </button>
-          <button onclick="rateCard(4)" class="flex flex-col items-center justify-center p-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/50 text-emerald-400 rounded-xl transition-all shadow-md group">
-            <span class="font-bold text-sm">Dễ</span>
-            <span class="text-[11px] opacity-75 mt-0.5">5 ngày</span>
-          </button>
-        </div>
-
-      </div>
-
-    </section>
-
-    <!-- TAB 2: MANAGE CARDS -->
-    <section id="tabManage" class="hidden space-y-6">
-      
-      <!-- Action Bar -->
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-800 p-4 rounded-xl border border-slate-700/80">
-        <div class="relative w-full sm:w-72">
-          <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-          <input type="text" id="searchInput" oninput="renderCardList()" placeholder="Tìm kiếm Phồn thể, Pinyin, Việt..." class="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
-        </div>
-
-        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <button onclick="exportJSON()" class="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5">
-            <i class="ph-bold ph-download-simple"></i> Export JSON
-          </button>
-          <label class="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-lg cursor-pointer transition-colors flex items-center gap-1.5">
-            <i class="ph-bold ph-upload-simple"></i> Import JSON
-            <input type="file" id="importFileInput" onchange="importJSON(event)" accept=".json" class="hidden">
-          </label>
-          <button onclick="openAddCardModal()" class="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-1.5">
-            <i class="ph-bold ph-plus"></i> Thêm Thẻ Mới
-          </button>
         </div>
       </div>
 
-      <!-- Cards List Table -->
-      <div class="bg-slate-800 rounded-xl border border-slate-700/80 overflow-hidden shadow-md">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm text-slate-300">
-            <thead class="bg-slate-900/80 text-xs uppercase text-slate-400 font-semibold border-b border-slate-700">
-              <tr>
-                <th class="py-3.5 px-4">Tiếng Trung (Phồn thể)</th>
-                <th class="py-3.5 px-4">Pinyin</th>
-                <th class="py-3.5 px-4">Nghĩa Tiếng Việt</th>
-                <th class="py-3.5 px-4 text-center">Trạng thái SRS</th>
-                <th class="py-3.5 px-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody id="cardTableBody" class="divide-y divide-slate-700/50">
-              <!-- Dynamically Populated -->
-            </tbody>
-          </table>
-        </div>
+      <!-- SRS Rating Buttons -->
+      <div id="srs-controls" class="grid grid-cols-4 gap-2 mt-6 hidden">
+        <button onclick="rateCard(1)" class="bg-red-900/40 hover:bg-red-800/60 border border-red-700/60 text-red-200 py-2.5 rounded-xl text-xs font-semibold flex flex-col items-center transition">
+          <span>Again</span>
+          <span class="text-[10px] text-red-400 font-normal">&lt; 1 phút</span>
+        </button>
+        <button onclick="rateCard(2)" class="bg-orange-900/40 hover:bg-orange-800/60 border border-orange-700/60 text-orange-200 py-2.5 rounded-xl text-xs font-semibold flex flex-col items-center transition">
+          <span>Hard</span>
+          <span class="text-[10px] text-orange-400 font-normal">12 giờ</span>
+        </button>
+        <button onclick="rateCard(3)" class="bg-blue-900/40 hover:bg-blue-800/60 border border-blue-700/60 text-blue-200 py-2.5 rounded-xl text-xs font-semibold flex flex-col items-center transition">
+          <span>Good</span>
+          <span class="text-[10px] text-blue-400 font-normal">1 ngày</span>
+        </button>
+        <button onclick="rateCard(4)" class="bg-emerald-900/40 hover:bg-emerald-800/60 border border-emerald-700/60 text-emerald-200 py-2.5 rounded-xl text-xs font-semibold flex flex-col items-center transition">
+          <span>Easy</span>
+          <span class="text-[10px] text-emerald-400 font-normal">4 ngày</span>
+        </button>
       </div>
     </section>
 
-    <!-- TAB 3: FIREBASE SETTINGS -->
-    <section id="tabSettings" class="hidden max-w-2xl mx-auto space-y-6">
-      
-      <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700/80 shadow-xl">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl text-2xl border border-emerald-500/20">
-            <i class="ph-bold ph-cloud-check"></i>
-          </div>
-          <div>
-            <h3 class="text-lg font-bold text-slate-100">Cấu Hình Đồng Bộ Firebase Realtime DB</h3>
-            <p class="text-xs text-slate-400">Đã liên kết thành công với dự án Firebase của bạn.</p>
-          </div>
-        </div>
-
-        <form id="firebaseConfigForm" onsubmit="saveFirebaseConfig(event)" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">API Key</label>
-            <input type="text" id="fbApiKey" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Database URL (Bắt buộc)</label>
-            <input type="text" id="fbDbUrl" placeholder="https://your-app-default-rtdb.firebaseio.com" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Project ID</label>
-            <input type="text" id="fbProjectId" placeholder="your-app-id" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
-          </div>
-
-          <div class="pt-4 flex items-center justify-between border-t border-slate-700/80">
-            <button type="button" onclick="clearFirebaseConfig()" class="px-4 py-2 bg-rose-950/50 hover:bg-rose-900/80 text-rose-300 text-xs font-semibold rounded-lg transition-colors border border-rose-800/40">
-              Khôi phục mặc định
-            </button>
-            <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2">
-              <i class="ph-bold ph-floppy-disk"></i> Lưu & Cập Nhật Cấu Hình
-            </button>
-          </div>
-        </form>
+    <!-- Card Management List Section -->
+    <section class="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-md font-semibold text-slate-200 flex items-center gap-2">
+          <i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i>
+          Danh Sách Thẻ (<span id="total-count">0</span>)
+        </h3>
+        <input type="text" id="search-input" oninput="filterCards()" placeholder="Tìm kiếm từ vựng..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 w-48">
       </div>
 
+      <!-- Table of Cards -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-700">
+            <tr>
+              <th class="py-3 px-4">Tiếng Trung (Phồn Thể)</th>
+              <th class="py-3 px-4">Pinyin</th>
+              <th class="py-3 px-4">Nghĩa Tiếng Việt</th>
+              <th class="py-3 px-4 text-center">Trạng Thái SRS</th>
+              <th class="py-3 px-4 text-center">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="card-table-body" class="divide-y divide-slate-700/60">
+            <!-- Dynamic rows will render here -->
+          </tbody>
+        </table>
+      </div>
     </section>
 
   </main>
 
-  <!-- ADD / EDIT CARD MODAL -->
-  <div id="cardModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-      
-      <div class="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
-        <h3 id="modalTitle" class="text-lg font-bold text-slate-100">Thêm Thẻ Học Phồn Thể Mới</h3>
-        <button onclick="closeCardModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
-          <i class="ph-bold ph-x text-xl"></i>
-        </button>
+  <!-- Add/Edit Card Modal -->
+  <div id="card-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 id="modal-title" class="text-lg font-bold text-slate-100">Thêm Thẻ Từ Vựng Mới</h3>
+        <button onclick="toggleModal(false)" class="text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
-
-      <form id="cardForm" onsubmit="handleSaveCard(event)" class="space-y-4">
-        <input type="hidden" id="cardFormId">
-
+      <form id="card-form" onsubmit="saveCard(event)" class="space-y-4">
+        <input type="hidden" id="edit-id">
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Tiếng Trung Phồn Thể (繁體中文) *</label>
-          <textarea id="formText" required rows="2" placeholder="VD: 是白鷺鷥嗎？隨便啦，亂講一個" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-indigo-500 font-medium"></textarea>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Tiếng Trung Phồn Thể *</label>
+          <input type="text" id="input-traditional" required placeholder="Ví dụ: 這台筆電 CP 值真的很爆表" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
         </div>
-
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Phiên âm Pinyin (Tùy chọn)</label>
-          <input type="text" id="formPinyin" placeholder="VD: shì bái lù sī ma? suí biàn la..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+          <label class="block text-xs font-medium text-slate-300 mb-1">Phiên âm Pinyin *</label>
+          <input type="text" id="input-pinyin" required placeholder="Ví dụ: zhè tái bǐ diàn C-P zhí..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
         </div>
-
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Dịch nghĩa Tiếng Việt *</label>
-          <textarea id="formVietnamese" required rows="2" placeholder="VD: Có phải con cò bợ không? Tùy đi, nói bừa một cái vậy." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Dịch Nghĩa Tiếng Việt *</label>
+          <input type="text" id="input-meaning" required placeholder="Ví dụ: Chiếc laptop này p/p rất cao..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
         </div>
-
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Link Ảnh Screenshot Ngữ Cảnh (URL / Base64 tùy chọn)</label>
-          <input type="text" id="formImage" placeholder="https://... hoặc dán link ảnh chụp màn hình" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-indigo-500 text-xs">
+          <label class="block text-xs font-medium text-slate-300 mb-1">URL Ảnh Ngữ Cảnh (Tùy chọn)</label>
+          <input type="url" id="input-image" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
         </div>
-
-        <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-700">
-          <button type="button" onclick="closeCardModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-lg transition-colors">
-            Hủy
-          </button>
-          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-indigo-600/30 transition-all">
-            Lưu Thẻ Flashcard
-          </button>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="toggleModal(false)" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-lg">Hủy</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg">Lưu Thẻ</button>
         </div>
       </form>
-
     </div>
   </div>
 
-  <!-- APPLICATION LOGIC (JS) -->
   <script>
-    // --- EXACT FIREBASE CONFIG PROVIDED BY USER ---
-    const DEFAULT_FIREBASE_CONFIG = {
+    // 1. Cấu hình Firebase Realtime Database Mới Nhất
+    const firebaseConfig = {
       apiKey: "AIzaSyBfIpqmiOwghVsSrNd_TSpS57Cz1O3qKyo",
       authDomain: "my-taiwanese-project.firebaseapp.com",
       databaseURL: "https://my-taiwanese-project-default-rtdb.firebaseio.com",
       projectId: "my-taiwanese-project",
       storageBucket: "my-taiwanese-project.firebasestorage.app",
       messagingSenderId: "1000055620120",
-      appId: "1:1000055620120:web:b35ae2b990f341924c796d",
-      measurementId: "G-11JKRFS4WQ"
+      appId: "1:1000055620120:web:1fa8c1f96f77c2314c796d",
+      measurementId: "G-JJ6BKYJMBY"
     };
 
-    // --- STATE MANAGEMENT ---
-    const STORAGE_KEY = 'anki_traditional_chinese_cards';
-    const FIREBASE_CFG_KEY = 'anki_firebase_config';
-    const SETTINGS_KEY = 'anki_app_settings';
-
+    let dbRef = null;
     let cards = [];
     let dueCards = [];
-    let currentCardIndex = 0;
+    let currentReviewIndex = 0;
     let isFlipped = false;
-    let autoTTS = true;
-    let firebaseApp = null;
-    let firebaseDb = null;
 
-    // Default Sample Data (If Empty)
-    const SAMPLE_CARDS = [
-      {
-        id: 'sample-1',
-        text: '是白鷺鷥嗎？隨便啦，亂講一個',
-        pinyin: 'shì bái lù sī ma? suí biàn la, luàn jiǎng yī gè',
-        vietnamese: 'Có phải con cò bợ không? Tùy đi, nói đại một cái vậy.',
-        imageUrl: '',
-        interval: 0,
-        repetition: 0,
-        easeFactor: 2.5,
-        dueDate: Date.now()
-      },
-      {
-        id: 'sample-2',
-        text: '這台筆電 CP 值真的很爆表',
-        pinyin: 'zhè tái bǐ diàn C-P zhí zhēn de hěn bào biǎo',
-        vietnamese: 'Chiếc laptop này tỷ lệ hiệu năng/giá thành thực sự vượt ngưỡng kỳ vọng.',
-        imageUrl: '',
-        interval: 0,
-        repetition: 0,
-        easeFactor: 2.5,
-        dueDate: Date.now()
-      }
-    ];
+    // Khởi tạo Firebase
+    try {
+      firebase.initializeApp(firebaseConfig);
+      dbRef = firebase.database().ref('flashcards');
+      document.getElementById('sync-status').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Đã kết nối Cloud`;
+    } catch (e) {
+      console.warn("Lỗi khởi tạo Firebase:", e);
+      document.getElementById('sync-status').innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500"></span> Offline (Local)`;
+    }
 
-    // --- INITIALIZATION ---
-    window.addEventListener('DOMContentLoaded', () => {
-      loadSettings();
-      loadCardsLocally();
-      initFirebase();
-      refreshDueQueue();
-      renderStudyCard();
-      renderCardList();
+    // 2. Khởi chạy Ứng dụng
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      loadInitialData();
     });
 
-    function loadSettings() {
-      const saved = localStorage.getItem(SETTINGS_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        autoTTS = parsed.autoTTS !== undefined ? parsed.autoTTS : true;
-      }
-      updateTTSIcon();
-    }
-
-    function toggleAutoTTS() {
-      autoTTS = !autoTTS;
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ autoTTS }));
-      updateTTSIcon();
-      showToast(autoTTS ? 'Đã BẬT đọc âm thanh tự động' : 'Đã TẮT đọc âm thanh tự động');
-    }
-
-    function updateTTSIcon() {
-      const icon = document.getElementById('autoTTSIcon');
-      const btn = document.getElementById('toggleAutoTTSBtn');
-      if (autoTTS) {
-        icon.className = 'ph-bold ph-speaker-high text-lg text-amber-400';
-        btn.classList.add('bg-amber-500/10', 'border', 'border-amber-500/20');
-      } else {
-        icon.className = 'ph-bold ph-speaker-slash text-lg text-slate-400';
-        btn.classList.remove('bg-amber-500/10', 'border', 'border-amber-500/20');
-      }
-    }
-
-    function loadCardsLocally() {
-      const localData = localStorage.getItem(STORAGE_KEY);
+    function loadInitialData() {
+      const localData = localStorage.getItem('anki_cn_cards');
       if (localData) {
-        try {
-          cards = JSON.parse(localData);
-        } catch (e) {
-          cards = SAMPLE_CARDS;
-        }
-      } else {
-        cards = SAMPLE_CARDS;
-        saveCardsLocally();
+        try { cards = JSON.parse(localData); } catch(e){}
       }
-      updateCounts();
+      renderAll();
+
+      listenToFirebase();
     }
 
-    function saveCardsLocally() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
-      updateCounts();
-    }
-
-    function syncToFirebase() {
-      if (firebaseDb) {
-        firebaseDb.ref('srs_cards').set(cards)
-          .then(() => {
-            updateSyncBadge('success', 'Đã đồng bộ Cloud');
-          })
-          .catch((err) => {
-            console.error('Firebase save error:', err);
-            updateSyncBadge('error', 'Lỗi đồng bộ Cloud');
-          });
-      }
-    }
-
-    function initFirebase() {
-      let config = DEFAULT_FIREBASE_CONFIG;
-      const cfgStr = localStorage.getItem(FIREBASE_CFG_KEY);
-      if (cfgStr) {
-        try {
-          config = JSON.parse(cfgStr);
-        } catch (e) {}
-      }
-
-      try {
-        if (!firebase.apps.length) {
-          firebaseApp = firebase.initializeApp(config);
+    function listenToFirebase() {
+      if (!dbRef) return;
+      dbRef.on('value', (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+          cards = Array.isArray(val) ? val : Object.values(val);
         } else {
-          firebaseApp = firebase.app();
+          cards = [];
         }
-        firebaseDb = firebase.database();
-
-        updateSyncBadge('loading', 'Đang kết nối Cloud...');
-
-        // Realtime Listener
-        firebaseDb.ref('srs_cards').on('value', (snapshot) => {
-          const val = snapshot.val();
-          if (val && Array.isArray(val)) {
-            cards = val;
-            saveCardsLocally();
-            refreshDueQueue();
-            renderStudyCard();
-            renderCardList();
-            updateSyncBadge('success', 'Đã kết nối Firebase Realtime');
-          } else if (!val && cards.length > 0) {
-            syncToFirebase();
-          }
-        }, (err) => {
-          console.error(err);
-          updateSyncBadge('error', 'Lỗi quy tắc/bảo mật Firebase');
-        });
-
-      } catch (err) {
-        console.error('Firebase init error:', err);
-        updateSyncBadge('error', 'Lỗi khởi tạo Firebase');
-      }
+        localStorage.setItem('anki_cn_cards', JSON.stringify(cards));
+        renderAll();
+      });
     }
 
-    function updateSyncBadge(status, message) {
-      const badge = document.getElementById('syncStatusBadge');
-      const text = document.getElementById('syncStatusText');
-      text.innerText = message;
-
-      if (status === 'success') {
-        badge.className = 'inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
-        text.className = 'font-medium text-emerald-400';
-      } else if (status === 'warning') {
-        badge.className = 'inline-block w-2.5 h-2.5 rounded-full bg-amber-400';
-        text.className = 'font-medium text-amber-400';
-      } else if (status === 'loading') {
-        badge.className = 'inline-block w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping';
-        text.className = 'font-medium text-blue-400';
-      } else {
-        badge.className = 'inline-block w-2.5 h-2.5 rounded-full bg-rose-500';
-        text.className = 'font-medium text-rose-400';
-      }
+    // 3. Render Giao diện
+    function renderAll() {
+      updateReviewQueue();
+      renderTable();
+      document.getElementById('total-count').innerText = cards.length;
     }
 
-    // --- SM-2 SPACED REPETITION ALGORITHM ---
-    function refreshDueQueue() {
+    function updateReviewQueue() {
       const now = Date.now();
-      dueCards = cards.filter(c => c.dueDate <= now);
-      dueCards.sort((a, b) => a.dueDate - b.dueDate);
-      if (currentCardIndex >= dueCards.length) {
-        currentCardIndex = 0;
-      }
-      document.getElementById('dueBadge').innerText = dueCards.length;
-    }
+      dueCards = cards.filter(c => c.nextReview <= now);
+      document.getElementById('due-count').innerText = dueCards.length;
 
-    function updateCounts() {
-      document.getElementById('totalCardsCount').innerText = cards.length;
-    }
-
-    function rateCard(quality) {
-      if (dueCards.length === 0) return;
-
-      const card = dueCards[currentCardIndex];
-      const now = Date.now();
-
-      let { interval, repetition, easeFactor } = card;
-
-      if (quality < 2) {
-        repetition = 0;
-        interval = 1; // 1 minute
+      if (dueCards.length > 0) {
+        document.getElementById('empty-state').classList.add('hidden');
+        document.getElementById('flashcard').classList.remove('hidden');
+        document.getElementById('srs-controls').classList.remove('hidden');
+        showCurrentCard();
       } else {
-        if (repetition === 0) {
-          interval = quality === 2 ? 1440 : (quality === 3 ? 4320 : 7200); // 1, 3, or 5 days
-        } else if (repetition === 1) {
-          interval = Math.round(interval * 2.5);
-        } else {
-          interval = Math.round(interval * easeFactor);
-        }
-        repetition += 1;
+        document.getElementById('empty-state').classList.remove('hidden');
+        document.getElementById('flashcard').classList.add('hidden');
+        document.getElementById('srs-controls').classList.add('hidden');
+        document.getElementById('card-progress').innerText = "0 / 0";
       }
+    }
 
-      easeFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-      if (easeFactor < 1.3) easeFactor = 1.3;
-
-      card.interval = interval;
-      card.repetition = repetition;
-      card.easeFactor = easeFactor;
-      card.dueDate = now + (interval * 60 * 1000);
-
-      saveCardsLocally();
-      syncToFirebase();
+    function showCurrentCard() {
+      if (currentReviewIndex >= dueCards.length) currentReviewIndex = 0;
+      const card = dueCards[currentReviewIndex];
+      if (!card) return;
 
       isFlipped = false;
-      refreshDueQueue();
-      renderStudyCard();
-    }
+      document.getElementById('card-back').classList.add('hidden');
+      document.getElementById('front-text').innerText = card.traditional;
+      document.getElementById('back-pinyin').innerText = card.pinyin;
+      document.getElementById('back-meaning').innerText = card.meaning;
 
-    // --- STUDY CARD RENDER & INTERACTIONS ---
-    function renderStudyCard() {
-      const container = document.getElementById('studyCardContainer');
-      const emptyState = document.getElementById('noCardsContainer');
-
-      if (dueCards.length === 0) {
-        container.classList.add('hidden');
-        emptyState.classList.remove('hidden');
-        return;
-      }
-
-      container.classList.remove('hidden');
-      emptyState.classList.add('hidden');
-
-      const card = dueCards[currentCardIndex];
-      window.currentCard = card;
-
-      document.getElementById('cardProgressText').innerText = `Thẻ ${currentCardIndex + 1} / ${dueCards.length} đến hạn`;
-      document.getElementById('cardText').innerText = card.text;
-      
-      const pinyinEl = document.getElementById('cardPinyin');
-      if (card.pinyin) {
-        pinyinEl.innerText = card.pinyin;
-        pinyinEl.classList.remove('hidden');
+      const imgContainer = document.getElementById('context-image-container');
+      if (card.image) {
+        document.getElementById('context-image').src = card.image;
+        imgContainer.classList.remove('hidden');
       } else {
-        pinyinEl.classList.add('hidden');
+        imgContainer.classList.add('hidden');
       }
 
-      document.getElementById('cardVietnamese').innerText = card.vietnamese;
+      document.getElementById('card-progress').innerText = `${currentReviewIndex + 1} / ${dueCards.length}`;
 
-      const imgWrapper = document.getElementById('cardImageWrapper');
-      const imgEl = document.getElementById('cardImage');
-      if (card.imageUrl && card.imageUrl.trim() !== '') {
-        imgEl.src = card.imageUrl;
-        imgWrapper.classList.remove('hidden');
-      } else {
-        imgWrapper.classList.add('hidden');
-      }
-
-      const backContent = document.getElementById('cardBackContent');
-      const ratingBtns = document.getElementById('srsRatingButtons');
-      const flipHint = document.getElementById('flipHint');
-
-      if (isFlipped) {
-        backContent.classList.remove('hidden');
-        ratingBtns.classList.remove('hidden');
-        ratingBtns.classList.add('grid');
-        flipHint.innerText = 'Đã mở đáp án - Hãy chọn mức độ nhớ';
-      } else {
-        backContent.classList.add('hidden');
-        ratingBtns.classList.add('hidden');
-        ratingBtns.classList.remove('grid');
-        flipHint.innerText = 'Nhấp vào thẻ để mở đáp án';
-      }
-
-      if (!isFlipped && autoTTS) {
-        speakText(card.text);
-      }
+      speakText(card.traditional);
     }
 
     function flipCard() {
       if (dueCards.length === 0) return;
       isFlipped = !isFlipped;
-      renderStudyCard();
+      const back = document.getElementById('card-back');
+      if (isFlipped) back.classList.remove('hidden');
+      else back.classList.add('hidden');
     }
 
-    // --- TAIWANESE (zh-TW) TEXT-TO-SPEECH ---
-    function speakText(text) {
-      if (!('speechSynthesis' in window)) return;
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'zh-TW';
-      utterance.rate = 0.85;
-
-      const voices = window.speechSynthesis.getVoices();
-      const twVoice = voices.find(v => v.lang === 'zh-TW' || v.lang.includes('TW'));
-      if (twVoice) {
-        utterance.voice = twVoice;
-      }
-
-      window.speechSynthesis.speak(utterance);
-    }
-
-    // --- MANAGE TAB TABLE RENDER ---
-    function renderCardList() {
-      const tbody = document.getElementById('cardTableBody');
-      const query = document.getElementById('searchInput').value.toLowerCase().trim();
-
-      const filtered = cards.filter(c => 
-        c.text.toLowerCase().includes(query) ||
-        (c.pinyin && c.pinyin.toLowerCase().includes(query)) ||
-        c.vietnamese.toLowerCase().includes(query)
-      );
-
-      if (filtered.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5" class="py-8 text-center text-slate-500 italic">
-              Không tìm thấy thẻ nào phù hợp.
-            </td>
-          </tr>
-        `;
-        return;
-      }
-
+    // 4. Thuật toán SRS
+    function rateCard(rating) {
+      if (dueCards.length === 0) return;
+      const card = dueCards[currentReviewIndex];
       const now = Date.now();
 
-      tbody.innerHTML = filtered.map(c => {
-        const isDue = c.dueDate <= now;
-        const dueText = isDue ? '<span class="text-amber-400 font-bold">Đến hạn</span>' : `Sau ${Math.round((c.dueDate - now)/(1000*60*60*24))} ngày`;
-
-        return `
-          <tr class="hover:bg-slate-700/30 transition-colors">
-            <td class="py-3 px-4 font-semibold text-slate-100 flex items-center gap-2">
-              <button onclick="speakText('${escapeQuotes(c.text)}')" class="text-slate-400 hover:text-amber-400">
-                <i class="ph-bold ph-speaker-high text-base"></i>
-              </button>
-              ${escapeHtml(c.text)}
-            </td>
-            <td class="py-3 px-4 text-amber-400/90 font-mono text-xs">${escapeHtml(c.pinyin || '-')}</td>
-            <td class="py-3 px-4 text-emerald-400 font-medium">${escapeHtml(c.vietnamese)}</td>
-            <td class="py-3 px-4 text-center text-xs">${dueText}</td>
-            <td class="py-3 px-4 text-right space-x-2">
-              <button onclick="openEditCardModal('${c.id}')" class="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-700">
-                <i class="ph-bold ph-pencil text-base"></i>
-              </button>
-              <button onclick="deleteCard('${c.id}')" class="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-700">
-                <i class="ph-bold ph-trash text-base"></i>
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    // --- CARD MODAL ACTIONS ---
-    function openAddCardModal() {
-      document.getElementById('modalTitle').innerText = 'Thêm Thẻ Học Phồn Thể Mới';
-      document.getElementById('cardFormId').value = '';
-      document.getElementById('cardForm').reset();
-      document.getElementById('cardModal').classList.remove('hidden');
-    }
-
-    function openEditCardModal(id) {
-      const card = cards.find(c => c.id === id);
-      if (!card) return;
-
-      document.getElementById('modalTitle').innerText = 'Chỉnh Sửa Thẻ Flashcard';
-      document.getElementById('cardFormId').value = card.id;
-      document.getElementById('formText').value = card.text;
-      document.getElementById('formPinyin').value = card.pinyin || '';
-      document.getElementById('formVietnamese').value = card.vietnamese;
-      document.getElementById('formImage').value = card.imageUrl || '';
-
-      document.getElementById('cardModal').classList.remove('hidden');
-    }
-
-    function closeCardModal() {
-      document.getElementById('cardModal').classList.add('hidden');
-    }
-
-    function handleSaveCard(e) {
-      e.preventDefault();
-      const id = document.getElementById('cardFormId').value;
-      const text = document.getElementById('formText').value.trim();
-      const pinyin = document.getElementById('formPinyin').value.trim();
-      const vietnamese = document.getElementById('formVietnamese').value.trim();
-      const imageUrl = document.getElementById('formImage').value.trim();
-
-      if (!text || !vietnamese) {
-        showToast('Vui lòng điền đủ Tiếng Trung và Tiếng Việt', 'error');
-        return;
+      if (rating === 1) { // Again
+        card.interval = 1;
+        card.nextReview = now + 60 * 1000;
+      } else if (rating === 2) { // Hard
+        card.interval = 0.5;
+        card.nextReview = now + 12 * 3600 * 1000;
+      } else if (rating === 3) { // Good
+        card.interval = 1;
+        card.nextReview = now + 24 * 3600 * 1000;
+      } else if (rating === 4) { // Easy
+        card.interval = 4;
+        card.nextReview = now + 4 * 24 * 3600 * 1000;
       }
 
+      saveAllCards();
+      currentReviewIndex++;
+      if (currentReviewIndex >= dueCards.length) currentReviewIndex = 0;
+      updateReviewQueue();
+    }
+
+    // 5. Xử lý Thao tác Xóa / Sửa triệt để
+    function deleteCard(id) {
+      if (!confirm("Bạn có chắc chắn muốn xóa vĩnh viễn thẻ này không?")) return;
+
+      cards = cards.filter(card => String(card.id) !== String(id));
+      localStorage.setItem('anki_cn_cards', JSON.stringify(cards));
+      renderAll();
+
+      if (dbRef) {
+        dbRef.off();
+        dbRef.set(cards)
+          .then(() => {
+            console.log("Xóa thành công trên Cloud!");
+            listenToFirebase();
+          })
+          .catch((err) => {
+            console.error("Lỗi xóa Cloud:", err);
+            listenToFirebase();
+          });
+      }
+    }
+
+    function editCard(id) {
+      const card = cards.find(c => String(c.id) === String(id));
+      if (!card) return;
+
+      document.getElementById('edit-id').value = card.id;
+      document.getElementById('input-traditional').value = card.traditional;
+      document.getElementById('input-pinyin').value = card.pinyin;
+      document.getElementById('input-meaning').value = card.meaning;
+      document.getElementById('input-image').value = card.image || '';
+      document.getElementById('modal-title').innerText = "Chỉnh Sửa Thẻ Từ Vựng";
+
+      toggleModal(true);
+    }
+
+    function saveCard(event) {
+      event.preventDefault();
+      const id = document.getElementById('edit-id').value;
+      const traditional = document.getElementById('input-traditional').value.trim();
+      const pinyin = document.getElementById('input-pinyin').value.trim();
+      const meaning = document.getElementById('input-meaning').value.trim();
+      const image = document.getElementById('input-image').value.trim();
+
       if (id) {
-        const idx = cards.findIndex(c => c.id === id);
-        if (idx !== -1) {
-          cards[idx] = { ...cards[idx], text, pinyin, vietnamese, imageUrl };
+        const card = cards.find(c => String(c.id) === String(id));
+        if (card) {
+          card.traditional = traditional;
+          card.pinyin = pinyin;
+          card.meaning = meaning;
+          card.image = image;
         }
       } else {
         const newCard = {
-          id: 'card-' + Date.now(),
-          text,
+          id: Date.now(),
+          traditional,
           pinyin,
-          vietnamese,
-          imageUrl,
+          meaning,
+          image,
           interval: 0,
-          repetition: 0,
-          easeFactor: 2.5,
-          dueDate: Date.now()
+          nextReview: Date.now()
         };
-        cards.unshift(newCard);
+        cards.push(newCard);
       }
 
-      saveCardsLocally();
-      syncToFirebase();
-      refreshDueQueue();
-      renderStudyCard();
-      renderCardList();
-      closeCardModal();
-      showToast(id ? 'Đã cập nhật thẻ thành công' : 'Đã thêm thẻ mới thành công');
+      saveAllCards();
+      toggleModal(false);
     }
 
-    // Hàm xóa thẻ đồng bộ trực tiếp lên Firebase Cloud & LocalStorage
-function deleteCard(id) {
-  if (!confirm("Bạn có chắc chắn muốn xóa thẻ này?")) return;
+    function saveAllCards() {
+      localStorage.setItem('anki_cn_cards', JSON.stringify(cards));
+      if (dbRef) {
+        dbRef.set(cards);
+      }
+      renderAll();
+    }
 
-  // 1. Lọc bỏ thẻ khỏi danh sách mảng hiện tại
-  cards = cards.filter(card => card.id !== id);
+    // 6. Render Bảng Danh Sách Thẻ
+    function renderTable() {
+      const tbody = document.getElementById('card-table-body');
+      const query = document.getElementById('search-input').value.toLowerCase();
+      tbody.innerHTML = '';
 
-  // 2. Cập nhật ngay lập tức lên bộ nhớ tạm LocalStorage
-  localStorage.setItem('anki_cn_cards', JSON.stringify(cards));
+      const filtered = cards.filter(c => 
+        c.traditional.toLowerCase().includes(query) ||
+        c.pinyin.toLowerCase().includes(query) ||
+        c.meaning.toLowerCase().includes(query)
+      );
 
-  // 3. Ghi đè danh sách mới lên Firebase Cloud để xóa tận gốc
-  if (dbRef) {
-    dbRef.set(cards)
-      .then(() => {
-        console.log("Đã xóa hoàn toàn trên Cloud!");
-        renderCards();
-      })
-      .catch((err) => {
-        console.error("Lỗi xóa trên Cloud:", err);
-        renderCards();
+      filtered.forEach(card => {
+        const isDue = card.nextReview <= Date.now();
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-700/40 transition border-b border-slate-700/40";
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-semibold text-white flex items-center gap-2">
+            <button onclick="speakText('${card.traditional.replace(/'/g, "\\'")}')" class="text-indigo-400 hover:text-indigo-300">
+              <i data-lucide="volume-2" class="w-4 h-4"></i>
+            </button>
+            ${card.traditional}
+          </td>
+          <td class="py-3 px-4 text-amber-300 font-mono text-xs">${card.pinyin}</td>
+          <td class="py-3 px-4 text-emerald-300">${card.meaning}</td>
+          <td class="py-3 px-4 text-center">
+            ${isDue ? 
+              `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-900/60 text-amber-300 border border-amber-700">Đến hạn</span>` : 
+              `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-400">Chờ</span>`}
+          </td>
+          <td class="py-3 px-4 text-center space-x-2">
+            <button onclick="editCard(${card.id})" class="p-1 text-slate-400 hover:text-indigo-400"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+            <button onclick="deleteCard(${card.id})" class="p-1 text-slate-400 hover:text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </td>
+        `;
+        tbody.appendChild(tr);
       });
-  } else {
-    renderCards();
-  }
-}
-    // --- JSON EXPORT / IMPORT ---
-    function exportJSON() {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cards, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `Anki_Chinese_PhonThe_${new Date().toISOString().slice(0,10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-      showToast('Đã xuất file JSON thành công');
+      lucide.createIcons();
     }
 
-    function importJSON(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const imported = JSON.parse(e.target.result);
-          if (Array.isArray(imported)) {
-            cards = imported;
-            saveCardsLocally();
-            syncToFirebase();
-            refreshDueQueue();
-            renderStudyCard();
-            renderCardList();
-            showToast(`Đã nạp ${imported.length} thẻ thành công!`);
-          } else {
-            showToast('Định dạng file JSON không hợp lệ', 'error');
-          }
-        } catch (err) {
-          showToast('Lỗi khi đọc file JSON', 'error');
-        }
-      };
-      reader.readAsText(file);
+    function filterCards() {
+      renderTable();
     }
 
-    // --- FIREBASE CONFIG FORM ---
-    function saveFirebaseConfig(e) {
-      e.preventDefault();
-      const apiKey = document.getElementById('fbApiKey').value.trim();
-      const databaseURL = document.getElementById('fbDbUrl').value.trim();
-      const projectId = document.getElementById('fbProjectId').value.trim();
-
-      const config = { ...DEFAULT_FIREBASE_CONFIG, apiKey, databaseURL, projectId };
-      localStorage.setItem(FIREBASE_CFG_KEY, JSON.stringify(config));
-      showToast('Đã lưu cấu hình! Đang kết nối lại...');
-      initFirebase();
+    // 7. Text-To-Speech (Phát Âm Tiếng Trung Phồn Thể zh-TW)
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-TW';
+      utterance.rate = 0.85;
+      window.speechSynthesis.speak(utterance);
     }
 
-    function clearFirebaseConfig() {
-      localStorage.removeItem(FIREBASE_CFG_KEY);
-      showToast('Đã khôi phục cấu hình Firebase mặc định');
-      initFirebase();
-    }
-
-    // --- TAB NAVIGATION ---
-    function switchTab(tabName) {
-      const tabStudy = document.getElementById('tabStudy');
-      const tabManage = document.getElementById('tabManage');
-      const tabSettings = document.getElementById('tabSettings');
-
-      const btnStudy = document.getElementById('tabBtnStudy');
-      const btnManage = document.getElementById('tabBtnManage');
-      const btnSettings = document.getElementById('tabBtnSettings');
-
-      tabStudy.classList.add('hidden');
-      tabManage.classList.add('hidden');
-      tabSettings.classList.add('hidden');
-
-      btnStudy.className = "flex-1 py-3 px-2 text-center text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2 transition-all";
-      btnManage.className = "flex-1 py-3 px-2 text-center text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2 transition-all";
-      btnSettings.className = "flex-1 py-3 px-2 text-center text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2 transition-all";
-
-      if (tabName === 'study') {
-        tabStudy.classList.remove('hidden');
-        btnStudy.className = "flex-1 py-3 px-2 text-center text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center justify-center gap-2 transition-all";
-        refreshDueQueue();
-        renderStudyCard();
-      } else if (tabName === 'manage') {
-        tabManage.classList.remove('hidden');
-        btnManage.className = "flex-1 py-3 px-2 text-center text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center justify-center gap-2 transition-all";
-        renderCardList();
-      } else if (tabName === 'settings') {
-        tabSettings.classList.remove('hidden');
-        btnSettings.className = "flex-1 py-3 px-2 text-center text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center justify-center gap-2 transition-all";
-        loadFirebaseConfigToForm();
+    function speakCurrent() {
+      if (dueCards.length > 0 && dueCards[currentReviewIndex]) {
+        speakText(dueCards[currentReviewIndex].traditional);
       }
     }
 
-    function loadFirebaseConfigToForm() {
-      let config = DEFAULT_FIREBASE_CONFIG;
-      const cfgStr = localStorage.getItem(FIREBASE_CFG_KEY);
-      if (cfgStr) {
-        try { config = JSON.parse(cfgStr); } catch (e) {}
+    // 8. Quản lý Modal Popup
+    function toggleModal(show) {
+      const modal = document.getElementById('card-modal');
+      if (show) {
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+        document.getElementById('card-form').reset();
+        document.getElementById('edit-id').value = '';
+        document.getElementById('modal-title').innerText = "Thêm Thẻ Từ Vựng Mới";
       }
-      document.getElementById('fbApiKey').value = config.apiKey || '';
-      document.getElementById('fbDbUrl').value = config.databaseURL || '';
-      document.getElementById('fbProjectId').value = config.projectId || '';
-    }
-
-    // --- UTILITIES & TOASTS ---
-    function showToast(message, type = 'info') {
-      const container = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      toast.className = `px-4 py-3 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-2 pointer-events-auto transition-all animate-bounce ${
-        type === 'error' ? 'bg-rose-900 text-rose-100 border border-rose-700' : 'bg-slate-800 text-slate-100 border border-slate-700'
-      }`;
-      toast.innerHTML = `<i class="ph-bold ${type === 'error' ? 'ph-warning-circle text-rose-400' : 'ph-check-circle text-emerald-400'} text-base"></i> ${message}`;
-      
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-      }, 2500);
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
-
-    function escapeQuotes(str) {
-      if (!str) return '';
-      return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
     }
   </script>
 </body>
