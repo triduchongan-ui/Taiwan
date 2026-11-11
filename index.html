@@ -757,17 +757,31 @@
       showToast(id ? 'Đã cập nhật thẻ thành công' : 'Đã thêm thẻ mới thành công');
     }
 
-    function deleteCard(id) {
-      if (!confirm('Bạn có chắc chắn muốn xóa thẻ này?')) return;
-      cards = cards.filter(c => c.id !== id);
-      saveCardsLocally();
-      syncToFirebase();
-      refreshDueQueue();
-      renderStudyCard();
-      renderCardList();
-      showToast('Đã xóa thẻ');
-    }
+    // Hàm xóa thẻ đồng bộ trực tiếp lên Firebase Cloud & LocalStorage
+function deleteCard(id) {
+  if (!confirm("Bạn có chắc chắn muốn xóa thẻ này?")) return;
 
+  // 1. Lọc bỏ thẻ khỏi danh sách mảng hiện tại
+  cards = cards.filter(card => card.id !== id);
+
+  // 2. Cập nhật ngay lập tức lên bộ nhớ tạm LocalStorage
+  localStorage.setItem('anki_cn_cards', JSON.stringify(cards));
+
+  // 3. Ghi đè danh sách mới lên Firebase Cloud để xóa tận gốc
+  if (dbRef) {
+    dbRef.set(cards)
+      .then(() => {
+        console.log("Đã xóa hoàn toàn trên Cloud!");
+        renderCards();
+      })
+      .catch((err) => {
+        console.error("Lỗi xóa trên Cloud:", err);
+        renderCards();
+      });
+  } else {
+    renderCards();
+  }
+}
     // --- JSON EXPORT / IMPORT ---
     function exportJSON() {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cards, null, 2));
