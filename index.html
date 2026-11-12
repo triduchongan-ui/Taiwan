@@ -62,12 +62,19 @@
           Ôn Tập Hôm Nay (<span id="due-count" class="text-indigo-400 font-bold">0</span>)
         </h2>
         
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Nút Ẩn chữ Phồn thể để luyện nghe gõ chữ -->
+          <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer bg-slate-900/70 px-2.5 py-1.5 rounded-lg border border-slate-700 hover:border-amber-500 transition" title="Ẩn chữ Hán mặt trước để luyện nghe và gõ lại chữ Phồn thể">
+            <input type="checkbox" id="toggle-hide-front" onchange="toggleHideFront()" class="accent-amber-500 rounded cursor-pointer">
+            <span>Ẩn chữ Hán</span>
+          </label>
+
           <!-- Nút Bật/Tắt chế độ gõ đáp án -->
           <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer bg-slate-900/70 px-2.5 py-1.5 rounded-lg border border-slate-700 hover:border-indigo-500 transition">
             <input type="checkbox" id="toggle-typing-mode" checked onchange="toggleTypingMode()" class="accent-indigo-500 rounded cursor-pointer">
             <span>Gõ kiểm tra</span>
           </label>
+
           <div class="text-xs text-slate-400 font-mono bg-slate-900/50 px-2.5 py-1.5 rounded-lg" id="card-progress">0 / 0</div>
         </div>
       </div>
@@ -89,13 +96,20 @@
             <div id="card-front" class="space-y-4">
               <div class="flex justify-between items-start">
                 <span class="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-900/60 text-indigo-300 border border-indigo-700/50">Phồn thể</span>
-                <button onclick="event.stopPropagation(); speakCurrent()" class="p-2 hover:bg-slate-600/50 rounded-full text-indigo-400 transition" title="Nghe phát âm">
+                <button onclick="event.stopPropagation(); speakCurrent()" class="p-2 hover:bg-slate-600/50 rounded-full text-indigo-400 transition flex items-center gap-1 text-xs" title="Nghe phát âm">
                   <i data-lucide="volume-2" class="w-5 h-5"></i>
                 </button>
               </div>
               
               <div class="text-center py-2">
                 <h3 id="front-text" class="text-3xl font-bold text-white tracking-wide"></h3>
+                <!-- Gợi ý khi bật chế độ Ẩn chữ Hán -->
+                <div id="hidden-front-placeholder" class="hidden py-2 flex flex-col items-center gap-2">
+                  <button onclick="event.stopPropagation(); speakCurrent()" class="px-4 py-2 rounded-full bg-indigo-600/30 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/50 text-sm flex items-center gap-2 transition">
+                    <i data-lucide="volume-2" class="w-4 h-4"></i> Bấm để nghe phát âm
+                  </button>
+                  <span class="text-[11px] text-slate-400 italic">(Đang ẩn chữ Hán — hãy nghe và gõ lại)</span>
+                </div>
               </div>
 
               <!-- Khu vực nhập đáp án (Typing Input) -->
@@ -105,7 +119,7 @@
                     type="text" 
                     id="user-answer-input" 
                     onkeydown="handleAnswerKeydown(event)"
-                    placeholder="Gõ Pinyin hoặc Nghĩa tiếng Việt..." 
+                    placeholder="Gõ Chữ Phồn thể, Pinyin hoặc Nghĩa..." 
                     autocomplete="off"
                     class="flex-1 bg-slate-900/90 border border-slate-600 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition"
                   >
@@ -126,14 +140,25 @@
             <!-- Back of Card (Hidden by default) -->
             <div id="card-back" class="space-y-4 border-t border-slate-600/80 pt-4 mt-4 hidden">
               
-              <!-- Kết quả so sánh đáp án người dùng nhập -->
-              <div id="answer-feedback" class="hidden rounded-xl p-3 text-sm border">
-                <div class="flex items-center gap-2 font-bold mb-1" id="feedback-header"></div>
-                <div class="text-xs opacity-90">
-                  Câu trả lời của bạn: <span id="user-typed-display" class="font-semibold underline"></span>
+              <!-- Kết quả so sánh đáp án người dùng nhập (Gồm cả Chữ Phồn thể chuẩn) -->
+              <div id="answer-feedback" class="hidden rounded-xl p-3.5 text-sm border space-y-2">
+                <div class="flex items-center gap-2 font-bold" id="feedback-header"></div>
+                <div class="text-xs space-y-1.5 pt-1 border-t border-white/10">
+                  <div>
+                    <span class="opacity-75">Bạn đã nhập:</span> 
+                    <span id="user-typed-display" class="font-semibold text-base ml-1"></span>
+                  </div>
+                  <div>
+                    <span class="opacity-75">Chữ Phồn thể chuẩn:</span> 
+                    <span id="correct-trad-display" class="font-bold text-white text-lg ml-1 tracking-wide"></span>
+                  </div>
                 </div>
               </div>
 
+              <div>
+                <p class="text-xs text-slate-400">Chữ Phồn thể:</p>
+                <p id="back-traditional" class="text-xl font-bold text-white tracking-wide"></p>
+              </div>
               <div>
                 <p class="text-xs text-slate-400">Pinyin:</p>
                 <p id="back-pinyin" class="text-lg font-medium text-amber-300"></p>
@@ -368,8 +393,12 @@
       isFlipped = false;
       document.getElementById('card-back').classList.add('hidden');
       document.getElementById('front-text').innerText = card.traditional;
+      document.getElementById('back-traditional').innerText = card.traditional;
       document.getElementById('back-pinyin').innerText = card.pinyin;
       document.getElementById('back-meaning').innerText = card.meaning;
+
+      // Cập nhật trạng thái Ẩn/Hiện chữ Phồn thể mặt trước
+      applyHideFrontState();
 
       // Reset ô nhập đáp án và khung thông báo kết quả
       const inputEl = document.getElementById('user-answer-input');
@@ -399,11 +428,39 @@
       if (dueCards.length === 0) return;
       isFlipped = !isFlipped;
       const back = document.getElementById('card-back');
-      if (isFlipped) back.classList.remove('hidden');
-      else back.classList.add('hidden');
+      if (isFlipped) {
+        back.classList.remove('hidden');
+        // Khi lật thẻ thì hiện luôn chữ Hán mặt trước nếu đang ẩn
+        document.getElementById('front-text').classList.remove('hidden');
+        document.getElementById('hidden-front-placeholder').classList.add('hidden');
+      } else {
+        back.classList.add('hidden');
+        applyHideFrontState();
+      }
     }
 
-    // --- TÍNH NĂNG MỚI: KIỂM TRA ĐÁP ÁN ---
+    // --- TÍNH NĂNG MỚI: ẨN CHỮ HÁN & KIỂM TRA ĐÁP ÁN ---
+    function toggleHideFront() {
+      applyHideFrontState();
+      if (document.getElementById('toggle-typing-mode').checked) {
+        document.getElementById('user-answer-input').focus();
+      }
+    }
+
+    function applyHideFrontState() {
+      const hideFront = document.getElementById('toggle-hide-front').checked;
+      const frontText = document.getElementById('front-text');
+      const placeholder = document.getElementById('hidden-front-placeholder');
+
+      if (hideFront && !isFlipped) {
+        frontText.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+      } else {
+        frontText.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+      }
+    }
+
     function toggleTypingMode() {
       const isChecked = document.getElementById('toggle-typing-mode').checked;
       const typingArea = document.getElementById('typing-area');
@@ -422,15 +479,14 @@
       }
     }
 
-    // Chuẩn hóa chuỗi để so sánh thông minh (bỏ dấu câu, khoảng trắng thừa, hỗ trợ Pinyin không dấu)
+    // Chuẩn hóa chuỗi để so sánh (bỏ dấu câu tiếng Trung/Việt, khoảng trắng thừa, hỗ trợ Pinyin không dấu)
     function normalizeText(str) {
       return str
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // Bỏ dấu thanh Pinyin/Tiếng Việt để so sánh linh hoạt
+        .replace(/[\u0300-\u036f]/g, "")
         .replace(/đ/g, "d")
-        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?？，。！]/g, "")
-        .replace(/\s+/g, " ")
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?？，。！、；：「」『』（）\s]/g, "")
         .trim();
     }
 
@@ -448,31 +504,33 @@
       const normUser = normalizeText(rawUserAnswer);
       const normPinyin = normalizeText(card.pinyin);
       const normMeaning = normalizeText(card.meaning);
-      const normTrad = card.traditional.trim().toLowerCase();
+      const normTrad = normalizeText(card.traditional);
 
-      // Tách các nghĩa nếu có dấu phẩy hoặc dấu gạch chéo (ví dụ: "xin chào, chào bạn")
+      // Tách các nghĩa nếu có dấu phẩy hoặc dấu gạch chéo
       const meaningParts = card.meaning.split(/[,;/]/).map(part => normalizeText(part)).filter(p => p.length > 0);
 
-      // Kiểm tra khớp: khớp Chữ Hán, khớp Pinyin (có dấu hoặc không dấu), hoặc khớp Nghĩa tiếng Việt
+      // Kiểm tra khớp: khớp Chữ Phồn thể, khớp Pinyin, hoặc khớp Nghĩa tiếng Việt
       const isCorrect = 
-        rawUserAnswer.toLowerCase() === normTrad ||
-        normUser === normPinyin ||
-        normUser === normMeaning ||
+        (normTrad.length > 0 && normUser === normTrad) ||
+        (normPinyin.length > 0 && normUser === normPinyin) ||
+        (normMeaning.length > 0 && normUser === normMeaning) ||
         meaningParts.includes(normUser);
 
-      // Hiển thị kết quả lên mặt sau của thẻ
+      // Hiển thị kết quả lên mặt sau của thẻ kèm Chữ Phồn thể chuẩn
       const feedbackEl = document.getElementById('answer-feedback');
       const headerEl = document.getElementById('feedback-header');
       const typedDisplayEl = document.getElementById('user-typed-display');
+      const correctTradDisplayEl = document.getElementById('correct-trad-display');
 
       typedDisplayEl.innerText = rawUserAnswer;
+      correctTradDisplayEl.innerText = card.traditional;
       feedbackEl.classList.remove('hidden');
 
       if (isCorrect) {
-        feedbackEl.className = "rounded-xl p-3 text-sm border bg-emerald-950/60 border-emerald-500/60 text-emerald-300";
+        feedbackEl.className = "rounded-xl p-3.5 text-sm border bg-emerald-950/70 border-emerald-500/70 text-emerald-300 space-y-2";
         headerEl.innerHTML = `<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i> Chính xác!`;
       } else {
-        feedbackEl.className = "rounded-xl p-3 text-sm border bg-red-950/60 border-red-500/60 text-red-300";
+        feedbackEl.className = "rounded-xl p-3.5 text-sm border bg-red-950/70 border-red-500/70 text-red-300 space-y-2";
         headerEl.innerHTML = `<i data-lucide="x-circle" class="w-4 h-4 text-red-400"></i> Chưa chính xác`;
       }
 
