@@ -44,7 +44,7 @@
   <!-- Main Container -->
   <main class="max-w-4xl mx-auto px-4 py-6 space-y-6">
 
-    <!-- Navigation Tabs (Chuyển đổi Tab như hình mẫu) -->
+    <!-- Navigation Tabs -->
     <div class="flex gap-3 bg-slate-800/80 p-2 rounded-2xl border border-slate-700/80 shadow-inner">
       <button id="btn-tab-review" onclick="switchTab('review')" class="flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-500">
         Ôn tập
@@ -56,12 +56,20 @@
 
     <!-- TAB 1: Flashcard Review Mode Section -->
     <section id="tab-review-content" class="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative">
-      <div class="flex justify-between items-center mb-4">
+      <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
         <h2 class="text-lg font-semibold text-slate-200 flex items-center gap-2">
           <i data-lucide="flame" class="text-orange-400 w-5 h-5"></i>
           Ôn Tập Hôm Nay (<span id="due-count" class="text-indigo-400 font-bold">0</span>)
         </h2>
-        <div class="text-xs text-slate-400" id="card-progress">0 / 0</div>
+        
+        <div class="flex items-center gap-3">
+          <!-- Nút Bật/Tắt chế độ gõ đáp án -->
+          <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer bg-slate-900/70 px-2.5 py-1.5 rounded-lg border border-slate-700 hover:border-indigo-500 transition">
+            <input type="checkbox" id="toggle-typing-mode" checked onchange="toggleTypingMode()" class="accent-indigo-500 rounded cursor-pointer">
+            <span>Gõ kiểm tra</span>
+          </label>
+          <div class="text-xs text-slate-400 font-mono bg-slate-900/50 px-2.5 py-1.5 rounded-lg" id="card-progress">0 / 0</div>
+        </div>
       </div>
 
       <!-- Card Display Container -->
@@ -74,8 +82,8 @@
         </div>
 
         <!-- Active Flashcard -->
-        <div id="flashcard" class="w-full max-w-lg cursor-pointer hidden select-none" onclick="flipCard()">
-          <div id="card-inner" class="bg-slate-700/60 border border-slate-600 rounded-2xl p-6 min-h-[260px] flex flex-col justify-between shadow-lg transition-all duration-300">
+        <div id="flashcard" class="w-full max-w-lg hidden">
+          <div id="card-inner" onclick="flipCard()" class="bg-slate-700/60 border border-slate-600 rounded-2xl p-6 min-h-[260px] flex flex-col justify-between shadow-lg transition-all duration-300 cursor-pointer">
             
             <!-- Front of Card -->
             <div id="card-front" class="space-y-4">
@@ -85,16 +93,47 @@
                   <i data-lucide="volume-2" class="w-5 h-5"></i>
                 </button>
               </div>
-              <div class="text-center py-4">
+              
+              <div class="text-center py-2">
                 <h3 id="front-text" class="text-3xl font-bold text-white tracking-wide"></h3>
               </div>
-              <p class="text-center text-xs text-slate-400 flex items-center justify-center gap-1">
-                <i data-lucide="rotate-cw" class="w-3 h-3"></i> Bấm để lật thẻ
+
+              <!-- Khu vực nhập đáp án (Typing Input) -->
+              <div id="typing-area" onclick="event.stopPropagation()" class="space-y-2 pt-1">
+                <div class="flex gap-2">
+                  <input 
+                    type="text" 
+                    id="user-answer-input" 
+                    onkeydown="handleAnswerKeydown(event)"
+                    placeholder="Gõ Pinyin hoặc Nghĩa tiếng Việt..." 
+                    autocomplete="off"
+                    class="flex-1 bg-slate-900/90 border border-slate-600 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition"
+                  >
+                  <button 
+                    type="button" 
+                    onclick="checkAnswer()" 
+                    class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition shrink-0 shadow-md">
+                    Kiểm tra
+                  </button>
+                </div>
+              </div>
+
+              <p id="flip-hint" class="text-center text-xs text-slate-400 flex items-center justify-center gap-1 pt-1">
+                <i data-lucide="rotate-cw" class="w-3 h-3"></i> Bấm vào thẻ để lật xem đáp án
               </p>
             </div>
 
             <!-- Back of Card (Hidden by default) -->
             <div id="card-back" class="space-y-4 border-t border-slate-600/80 pt-4 mt-4 hidden">
+              
+              <!-- Kết quả so sánh đáp án người dùng nhập -->
+              <div id="answer-feedback" class="hidden rounded-xl p-3 text-sm border">
+                <div class="flex items-center gap-2 font-bold mb-1" id="feedback-header"></div>
+                <div class="text-xs opacity-90">
+                  Câu trả lời của bạn: <span id="user-typed-display" class="font-semibold underline"></span>
+                </div>
+              </div>
+
               <div>
                 <p class="text-xs text-slate-400">Pinyin:</p>
                 <p id="back-pinyin" class="text-lg font-medium text-amber-300"></p>
@@ -133,7 +172,7 @@
       </div>
     </section>
 
-    <!-- TAB 2: Card Management List Section (Mặc định ẩn, bấm Tab 2 mới hiện) -->
+    <!-- TAB 2: Card Management List Section -->
     <section id="tab-manage-content" class="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl hidden">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
         <h3 class="text-md font-semibold text-slate-200 flex items-center gap-2">
@@ -202,7 +241,7 @@
     </div>
   </div>
 
-  <!-- Delete Confirmation Modal (Không dùng alert/confirm) -->
+  <!-- Delete Confirmation Modal -->
   <div id="delete-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
       <div class="w-12 h-12 rounded-full bg-red-900/30 border border-red-700/50 flex items-center justify-center mx-auto text-red-400">
@@ -253,7 +292,7 @@
       loadInitialData();
     });
 
-    // 3. Logic Chuyển Đổi Tab (Tab Switching)
+    // 3. Logic Chuyển Đổi Tab
     function switchTab(tabName) {
       const btnReview = document.getElementById('btn-tab-review');
       const btnManage = document.getElementById('btn-tab-manage');
@@ -261,13 +300,11 @@
       const contentManage = document.getElementById('tab-manage-content');
 
       if (tabName === 'review') {
-        // Highlighting Tab Ôn tập (Blue Active)
         btnReview.className = "flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-500";
         btnManage.className = "flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 bg-slate-700/70 text-slate-300 hover:bg-slate-700 hover:text-white";
         contentReview.classList.remove('hidden');
         contentManage.classList.add('hidden');
       } else if (tabName === 'manage') {
-        // Highlighting Tab Quản lý từ (Blue Active)
         btnManage.className = "flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-500";
         btnReview.className = "flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 bg-slate-700/70 text-slate-300 hover:bg-slate-700 hover:text-white";
         contentManage.classList.remove('hidden');
@@ -334,6 +371,12 @@
       document.getElementById('back-pinyin').innerText = card.pinyin;
       document.getElementById('back-meaning').innerText = card.meaning;
 
+      // Reset ô nhập đáp án và khung thông báo kết quả
+      const inputEl = document.getElementById('user-answer-input');
+      const feedbackEl = document.getElementById('answer-feedback');
+      inputEl.value = '';
+      feedbackEl.classList.add('hidden');
+
       const imgContainer = document.getElementById('context-image-container');
       if (card.image) {
         document.getElementById('context-image').src = card.image;
@@ -344,6 +387,11 @@
 
       document.getElementById('card-progress').innerText = `${currentReviewIndex + 1} / ${dueCards.length}`;
 
+      // Tự động focus vào ô nhập nếu đang bật chế độ gõ
+      if (document.getElementById('toggle-typing-mode').checked) {
+        setTimeout(() => inputEl.focus(), 50);
+      }
+
       speakText(card.traditional);
     }
 
@@ -353,6 +401,87 @@
       const back = document.getElementById('card-back');
       if (isFlipped) back.classList.remove('hidden');
       else back.classList.add('hidden');
+    }
+
+    // --- TÍNH NĂNG MỚI: KIỂM TRA ĐÁP ÁN ---
+    function toggleTypingMode() {
+      const isChecked = document.getElementById('toggle-typing-mode').checked;
+      const typingArea = document.getElementById('typing-area');
+      if (isChecked) {
+        typingArea.classList.remove('hidden');
+        document.getElementById('user-answer-input').focus();
+      } else {
+        typingArea.classList.add('hidden');
+      }
+    }
+
+    function handleAnswerKeydown(event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        checkAnswer();
+      }
+    }
+
+    // Chuẩn hóa chuỗi để so sánh thông minh (bỏ dấu câu, khoảng trắng thừa, hỗ trợ Pinyin không dấu)
+    function normalizeText(str) {
+      return str
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Bỏ dấu thanh Pinyin/Tiếng Việt để so sánh linh hoạt
+        .replace(/đ/g, "d")
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?？，。！]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function checkAnswer() {
+      if (dueCards.length === 0) return;
+      const card = dueCards[currentReviewIndex];
+      const rawUserAnswer = document.getElementById('user-answer-input').value.trim();
+
+      // Nếu chưa nhập gì thì chỉ lật thẻ xem đáp án
+      if (!rawUserAnswer) {
+        if (!isFlipped) flipCard();
+        return;
+      }
+
+      const normUser = normalizeText(rawUserAnswer);
+      const normPinyin = normalizeText(card.pinyin);
+      const normMeaning = normalizeText(card.meaning);
+      const normTrad = card.traditional.trim().toLowerCase();
+
+      // Tách các nghĩa nếu có dấu phẩy hoặc dấu gạch chéo (ví dụ: "xin chào, chào bạn")
+      const meaningParts = card.meaning.split(/[,;/]/).map(part => normalizeText(part)).filter(p => p.length > 0);
+
+      // Kiểm tra khớp: khớp Chữ Hán, khớp Pinyin (có dấu hoặc không dấu), hoặc khớp Nghĩa tiếng Việt
+      const isCorrect = 
+        rawUserAnswer.toLowerCase() === normTrad ||
+        normUser === normPinyin ||
+        normUser === normMeaning ||
+        meaningParts.includes(normUser);
+
+      // Hiển thị kết quả lên mặt sau của thẻ
+      const feedbackEl = document.getElementById('answer-feedback');
+      const headerEl = document.getElementById('feedback-header');
+      const typedDisplayEl = document.getElementById('user-typed-display');
+
+      typedDisplayEl.innerText = rawUserAnswer;
+      feedbackEl.classList.remove('hidden');
+
+      if (isCorrect) {
+        feedbackEl.className = "rounded-xl p-3 text-sm border bg-emerald-950/60 border-emerald-500/60 text-emerald-300";
+        headerEl.innerHTML = `<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i> Chính xác!`;
+      } else {
+        feedbackEl.className = "rounded-xl p-3 text-sm border bg-red-950/60 border-red-500/60 text-red-300";
+        headerEl.innerHTML = `<i data-lucide="x-circle" class="w-4 h-4 text-red-400"></i> Chưa chính xác`;
+      }
+
+      lucide.createIcons();
+
+      // Lật thẻ để đối chiếu với đáp án chuẩn
+      if (!isFlipped) {
+        flipCard();
+      }
     }
 
     // 5. Thuật toán SRS
