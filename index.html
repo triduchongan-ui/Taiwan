@@ -167,6 +167,20 @@
                 <p class="text-xs text-slate-400">Nghĩa tiếng Việt:</p>
                 <p id="back-meaning" class="text-base text-emerald-300 font-medium"></p>
               </div>
+
+              <!-- Khu vực Ví dụ (Mặt sau) -->
+              <div id="back-example-container" class="hidden bg-slate-800/80 border border-slate-600/70 rounded-xl p-3.5 space-y-1.5">
+                <div class="flex justify-between items-center">
+                  <p class="text-xs font-semibold text-cyan-400 flex items-center gap-1.5">
+                    <i data-lucide="quote" class="w-3.5 h-3.5"></i> Ví dụ ngữ cảnh:
+                  </p>
+                  <button type="button" onclick="event.stopPropagation(); speakExample()" class="p-1.5 hover:bg-slate-700 rounded-full text-cyan-400 transition" title="Nghe phát âm ví dụ">
+                    <i data-lucide="volume-2" class="w-4 h-4"></i>
+                  </button>
+                </div>
+                <p id="back-example" class="text-sm text-slate-200 whitespace-pre-line leading-relaxed"></p>
+              </div>
+
               <div id="context-image-container" class="hidden">
                 <img id="context-image" class="w-full max-h-48 object-cover rounded-lg border border-slate-600" src="" alt="Context">
               </div>
@@ -205,7 +219,7 @@
           Danh Sách Thẻ (<span id="total-count">0</span>)
         </h3>
         <div class="flex items-center gap-2 w-full sm:w-auto">
-          <input type="text" id="search-input" oninput="filterCards()" placeholder="Tìm kiếm từ vựng..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 w-full sm:w-48">
+          <input type="text" id="search-input" oninput="filterCards()" placeholder="Tìm kiếm từ vựng, ví dụ..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 w-full sm:w-52">
           <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-2 rounded-lg flex items-center gap-1 transition shrink-0">
             <i data-lucide="plus" class="w-4 h-4"></i> Thêm từ
           </button>
@@ -219,7 +233,7 @@
             <tr>
               <th class="py-3 px-4">Tiếng Trung (Phồn Thể)</th>
               <th class="py-3 px-4">Pinyin</th>
-              <th class="py-3 px-4">Nghĩa Tiếng Việt</th>
+              <th class="py-3 px-4">Nghĩa & Ví Dụ</th>
               <th class="py-3 px-4 text-center">Trạng Thái SRS</th>
               <th class="py-3 px-4 text-center">Thao Tác</th>
             </tr>
@@ -235,7 +249,7 @@
 
   <!-- Add/Edit Card Modal -->
   <div id="card-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b border-slate-700 pb-3">
         <h3 id="modal-title" class="text-lg font-bold text-slate-100">Thêm Thẻ Từ Vựng Mới</h3>
         <button onclick="toggleModal(false)" class="text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -253,6 +267,10 @@
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">Dịch Nghĩa Tiếng Việt *</label>
           <input type="text" id="input-meaning" required placeholder="Ví dụ: Chiếc laptop này p/p rất cao..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Ví dụ ngữ cảnh (Mặt sau - Tùy chọn)</label>
+          <textarea id="input-example" rows="3" placeholder="Ví dụ:&#10;這個價格買到這種規格，CP值真的很高！&#10;(Mua được cấu hình này với giá đó thì p/p quá cao!)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 leading-relaxed"></textarea>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">URL Ảnh Ngữ Cảnh (Tùy chọn)</label>
@@ -397,6 +415,16 @@
       document.getElementById('back-pinyin').innerText = card.pinyin;
       document.getElementById('back-meaning').innerText = card.meaning;
 
+      // Hiển thị Ví dụ ở mặt sau (nếu có)
+      const exampleContainer = document.getElementById('back-example-container');
+      const exampleEl = document.getElementById('back-example');
+      if (card.example && card.example.trim() !== '') {
+        exampleEl.innerText = card.example;
+        exampleContainer.classList.remove('hidden');
+      } else {
+        exampleContainer.classList.add('hidden');
+      }
+
       // Cập nhật trạng thái Ẩn/Hiện chữ Phồn thể mặt trước
       applyHideFrontState();
 
@@ -439,7 +467,7 @@
       }
     }
 
-    // --- TÍNH NĂNG MỚI: ẨN CHỮ HÁN & KIỂM TRA ĐÁP ÁN ---
+    // --- TÍNH NĂNG ẨN CHỮ HÁN & KIỂM TRA ĐÁP ÁN ---
     function toggleHideFront() {
       applyHideFrontState();
       if (document.getElementById('toggle-typing-mode').checked) {
@@ -609,6 +637,7 @@
       document.getElementById('input-traditional').value = card.traditional;
       document.getElementById('input-pinyin').value = card.pinyin;
       document.getElementById('input-meaning').value = card.meaning;
+      document.getElementById('input-example').value = card.example || '';
       document.getElementById('input-image').value = card.image || '';
       document.getElementById('modal-title').innerText = "Chỉnh Sửa Thẻ Từ Vựng";
 
@@ -625,6 +654,7 @@
       const traditional = document.getElementById('input-traditional').value.trim();
       const pinyin = document.getElementById('input-pinyin').value.trim();
       const meaning = document.getElementById('input-meaning').value.trim();
+      const example = document.getElementById('input-example').value.trim();
       const image = document.getElementById('input-image').value.trim();
 
       if (id) {
@@ -633,6 +663,7 @@
           card.traditional = traditional;
           card.pinyin = pinyin;
           card.meaning = meaning;
+          card.example = example;
           card.image = image;
         }
       } else {
@@ -641,6 +672,7 @@
           traditional,
           pinyin,
           meaning,
+          example,
           image,
           interval: 0,
           nextReview: Date.now()
@@ -669,7 +701,8 @@
       const filtered = cards.filter(c => 
         c.traditional.toLowerCase().includes(query) ||
         c.pinyin.toLowerCase().includes(query) ||
-        c.meaning.toLowerCase().includes(query)
+        c.meaning.toLowerCase().includes(query) ||
+        (c.example && c.example.toLowerCase().includes(query))
       );
 
       filtered.forEach(card => {
@@ -678,13 +711,16 @@
         tr.className = "hover:bg-slate-700/40 transition border-b border-slate-700/40";
         tr.innerHTML = `
           <td class="py-3 px-4 font-semibold text-white flex items-center gap-2">
-            <button onclick="speakText('${card.traditional.replace(/'/g, "\\'")}')" class="text-indigo-400 hover:text-indigo-300">
+            <button onclick="speakText('${card.traditional.replace(/'/g, "\\'")}')" class="text-indigo-400 hover:text-indigo-300 shrink-0">
               <i data-lucide="volume-2" class="w-4 h-4"></i>
             </button>
-            ${card.traditional}
+            <span>${card.traditional}</span>
           </td>
           <td class="py-3 px-4 text-amber-300 font-mono text-xs">${card.pinyin}</td>
-          <td class="py-3 px-4 text-emerald-300">${card.meaning}</td>
+          <td class="py-3 px-4">
+            <div class="text-emerald-300">${card.meaning}</div>
+            ${card.example ? `<div class="text-xs text-slate-400 mt-1 line-clamp-1 italic">VD: ${card.example}</div>` : ''}
+          </td>
           <td class="py-3 px-4 text-center">
             ${isDue ? 
               `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-900/60 text-amber-300 border border-amber-700">Đến hạn</span>` : 
@@ -717,6 +753,14 @@
     function speakCurrent() {
       if (dueCards.length > 0 && dueCards[currentReviewIndex]) {
         speakText(dueCards[currentReviewIndex].traditional);
+      }
+    }
+
+    function speakExample() {
+      if (dueCards.length > 0 && dueCards[currentReviewIndex] && dueCards[currentReviewIndex].example) {
+        // Chỉ đọc phần tiếng Trung (loại bỏ phần dịch trong ngoặc đơn nếu có)
+        const chineseOnly = dueCards[currentReviewIndex].example.replace(/\(.*?\)/g, '').trim();
+        speakText(chineseOnly || dueCards[currentReviewIndex].example);
       }
     }
 
