@@ -174,7 +174,7 @@
                   <p class="text-xs font-semibold text-cyan-400 flex items-center gap-1.5">
                     <i data-lucide="quote" class="w-3.5 h-3.5"></i> Ví dụ ngữ cảnh:
                   </p>
-                  <button type="button" onclick="event.stopPropagation(); speakExample()" class="p-1.5 hover:bg-slate-700 rounded-full text-cyan-400 transition" title="Nghe phát âm ví dụ">
+                  <button type="button" onclick="event.stopPropagation(); speakExample()" class="p-1.5 hover:bg-slate-700 rounded-full text-cyan-400 transition" title="Chỉ nghe phát âm chữ Phồn thể">
                     <i data-lucide="volume-2" class="w-4 h-4"></i>
                   </button>
                 </div>
@@ -270,7 +270,7 @@
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">Ví dụ ngữ cảnh (Mặt sau - Tùy chọn)</label>
-          <textarea id="input-example" rows="3" placeholder="Ví dụ:&#10;這個價格買到這種規格，CP值真的很高！&#10;(Mua được cấu hình này với giá đó thì p/p quá cao!)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 leading-relaxed"></textarea>
+          <textarea id="input-example" rows="3" placeholder="Ví dụ:&#10;這個價格買到這種規格，CP值真的很高！&#10;zhège jiàgé mǎidào zhèzhǒng guīgé...&#10;(Mua được cấu hình này với giá đó thì p/p quá cao!)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 leading-relaxed"></textarea>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">URL Ảnh Ngữ Cảnh (Tùy chọn)</label>
@@ -758,9 +758,13 @@
 
     function speakExample() {
       if (dueCards.length > 0 && dueCards[currentReviewIndex] && dueCards[currentReviewIndex].example) {
-        // Chỉ đọc phần tiếng Trung (loại bỏ phần dịch trong ngoặc đơn nếu có)
-        const chineseOnly = dueCards[currentReviewIndex].example.replace(/\(.*?\)/g, '').trim();
-        speakText(chineseOnly || dueCards[currentReviewIndex].example);
+        const rawExample = dueCards[currentReviewIndex].example;
+        // Chỉ lọc lấy ký tự chữ Hán (CJK Unified Ideographs) và dấu câu tiếng Trung
+        const chineseChars = rawExample.match(/[\u4e00-\u9fff，。！？、；：「」『』（）…—]+/g);
+        
+        if (chineseChars && chineseChars.length > 0) {
+          speakText(chineseChars.join(' '));
+        }
       }
     }
 
