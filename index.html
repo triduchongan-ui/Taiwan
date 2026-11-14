@@ -160,7 +160,7 @@
     .btn-edit { background: var(--warning); }
     .btn-delete { background: var(--danger); }
 
-    /* ================= GIAO DIỆN LUYỆN HỘI THOẠI MỚI ================= */
+    /* ================= GIAO DIỆN LUYỆN HỘI THOẠI TỪNG LƯỢT ================= */
     .dialog-controls {
       display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;
     }
@@ -181,7 +181,7 @@
     }
     .chat-title { font-weight: bold; font-size: 16px; color: #a5b4fc; }
 
-    .bubble-row { display: flex; flex-direction: column; max-width: 88%; }
+    .bubble-row { display: flex; flex-direction: column; max-width: 90%; }
     .bubble-prof { align-self: flex-start; }
     .bubble-you { align-self: flex-end; }
 
@@ -204,15 +204,18 @@
 
     .roleplay-mask {
       background: rgba(15, 23, 42, 0.7); border: 1px dashed #6366f1; border-radius: 10px;
-      padding: 10px; margin-top: 6px;
+      padding: 10px; margin-top: 8px;
     }
     .roleplay-input {
-      width: 100%; padding: 8px 10px; font-size: 14px; background: var(--bg);
+      width: 100%; padding: 9px 11px; font-size: 14px; background: var(--bg);
       color: white; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; margin-top: 6px;
     }
     .btn-reveal-turn {
-      margin-top: 6px; padding: 5px 10px; font-size: 12px; background: var(--primary);
+      margin-top: 8px; padding: 6px 12px; font-size: 12px; background: var(--primary);
       color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+    }
+    .progress-hint {
+      text-align: center; font-size: 12px; color: var(--muted); padding-top: 6px; border-top: 1px dashed var(--border);
     }
   </style>
 
@@ -230,7 +233,7 @@
 
   <div class="sync-status" id="syncStatus">🔄 Đang kết nối Cloud...</div>
 
-  <!-- ================= TAB 1: ÔN TẬP THẺ (GIỮ NGUYÊN CẤU TRÚC CŨ + TRỘN PHẢN XẠ) ================= -->
+  <!-- ================= TAB 1: ÔN TẬP THẺ ================= -->
   <div id="studyView" class="view active">
     <div id="statBox" class="stat-box">Đang tải dữ liệu...</div>
 
@@ -244,11 +247,11 @@
     <div id="cardContainer"></div>
   </div>
 
-  <!-- ================= TAB 2: LUYỆN HỘI THOẠI PHẢN XẠ ================= -->
+  <!-- ================= TAB 2: LUYỆN HỘI THOẠI TỪNG BƯỚC ================= -->
   <div id="dialogueView" class="view">
     <div class="dialog-controls">
       <select id="dialogueSelect" onchange="selectDialogue(this.value)" style="flex:1; min-width: 180px;"></select>
-      <button class="btn-pill" id="roleplayToggleBtn" onclick="toggleRoleplayMode()">🎭 Đóng vai (Ẩn câu Bạn)</button>
+      <button class="btn-pill" id="roleplayToggleBtn" onclick="toggleRoleplayMode()">🎭 Đóng vai: TẮT</button>
       <button class="btn-pill btn-pill-primary" onclick="playFullDialogue()">🔊 Nghe cả đoạn</button>
     </div>
 
@@ -306,7 +309,6 @@
   </div>
 
   <script>
-    // Cấu hình Firebase của bạn
     const firebaseConfig = {
       apiKey: "AIzaSyD2qytj3TPX4n5TXnGr-JJor9pqO_up4N4",
       authDomain: "my-taiwanese-project.firebaseapp.com",
@@ -330,7 +332,6 @@
     let isAnswerShown = false;
     let userTypedAnswer = '';
 
-    // Dữ liệu hội thoại mặc định (Ngày 2) nếu Cloud chưa có
     const defaultDialogue = {
       id: 1700000000002,
       title: "Ngày 2 - Báo cáo lỗi phần mềm với Giáo sư",
@@ -371,9 +372,8 @@
     let dialogues = [defaultDialogue];
     let selectedDialogueId = defaultDialogue.id;
     let isRoleplayMode = false;
-    let revealedTurns = {}; // Lưu trạng thái mở từng lượt của Bạn trong chế độ Roleplay
+    let revealedTurns = {}; // Chỉ mở từng lượt khi người dùng bấm hiện đáp án hoặc gõ đúng
 
-    // Lắng nghe dữ liệu Thẻ từ Cloud
     cardsRef.on('value', (snapshot) => {
       const data = snapshot.val();
       cards = data ? Object.values(data) : [];
@@ -382,7 +382,6 @@
       renderWordList();
     });
 
-    // Lắng nghe dữ liệu Hội thoại từ Cloud
     dialoguesRef.on('value', (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -492,10 +491,10 @@
       const DAY = 24 * HOUR;
 
       let offset = 10 * MINUTE;
-      if (quality === 0) offset = 10 * MINUTE;       // Quên: 10 phút
-      else if (quality === 3) offset = 12 * HOUR;    // Khó: 12 tiếng
-      else if (quality === 4) offset = 1 * DAY;      // Tốt: 1 ngày
-      else if (quality === 5) offset = 2 * DAY;      // Dễ: 2 ngày
+      if (quality === 0) offset = 10 * MINUTE;
+      else if (quality === 3) offset = 12 * HOUR;
+      else if (quality === 4) offset = 1 * DAY;
+      else if (quality === 5) offset = 2 * DAY;
 
       card.dueTimestamp = Date.now() + offset;
       return card;
@@ -681,7 +680,7 @@
       }
     }
 
-    // ================= LOGIC TAB 2: LUYỆN HỘI THOẠI PHẢN XẠ =================
+    // ================= LOGIC TAB 2: LUYỆN HỘI THOẠI TỪNG LƯỢT =================
     function renderDialogueSelector() {
       const select = document.getElementById('dialogueSelect');
       if (!select) return;
@@ -701,17 +700,27 @@
       revealedTurns = {};
       const btn = document.getElementById('roleplayToggleBtn');
       btn.classList.toggle('active', isRoleplayMode);
-      btn.textContent = isRoleplayMode ? '🎭 Đóng vai: ĐANG BẬT' : '🎭 Đóng vai (Ẩn câu Bạn)';
+      btn.textContent = isRoleplayMode ? '🎭 Đóng vai: ĐANG BẬT' : '🎭 Đóng vai: TẮT';
       renderDialogueView();
     }
 
+    // Chỉ mở đúng đáp án của mục ẩn `idx`, sau đó đọc câu đó (và đọc tiếp câu Giáo sư kế bên nếu có)
     function revealTurn(idx) {
       revealedTurns[idx] = true;
       renderDialogueView();
+
       const dialog = dialogues.find(d => d.id == selectedDialogueId);
-      if (dialog && dialog.turns[idx]) {
-        speakTaiwanese(dialog.turns[idx].zh);
-      }
+      if (!dialog || !dialog.turns[idx]) return;
+
+      const currentTurn = dialog.turns[idx];
+      const nextTurn = dialog.turns[idx + 1];
+
+      speakTaiwanese(currentTurn.zh, null, () => {
+        // Nếu lượt kế tiếp là của Giáo sư, tự động đọc câu hỏi tiếp theo của Giáo sư sau 0.6s
+        if (nextTurn && !(nextTurn.speaker.toLowerCase().includes('bạn') || nextTurn.speaker.toLowerCase().includes('em'))) {
+          setTimeout(() => speakTaiwanese(nextTurn.zh), 600);
+        }
+      });
     }
 
     function checkTurnInput(idx, inputVal) {
@@ -720,9 +729,7 @@
       const target = normalizeText(dialog.turns[idx].zh);
       const typed = normalizeText(inputVal);
       if (typed === target && typed.length > 0) {
-        revealedTurns[idx] = true;
-        renderDialogueView();
-        speakTaiwanese(dialog.turns[idx].zh);
+        revealTurn(idx);
       }
     }
 
@@ -758,7 +765,22 @@
       const dialog = dialogues.find(d => d.id == selectedDialogueId) || dialogues[0];
       if (!dialog) return;
 
-      const turnsHtml = dialog.turns.map((turn, idx) => {
+      // Xác định điểm dừng hiển thị khi bật chế độ Đóng vai:
+      // Chỉ hiển thị đến đúng lượt ẩn đầu tiên của Bạn (không bung toàn bộ đoạn hội thoại phía sau)
+      let visibleLimit = dialog.turns.length - 1;
+      if (isRoleplayMode) {
+        for (let i = 0; i < dialog.turns.length; i++) {
+          const isYouTurn = dialog.turns[i].speaker.toLowerCase().includes('bạn') || dialog.turns[i].speaker.toLowerCase().includes('em');
+          if (isYouTurn && !revealedTurns[i]) {
+            visibleLimit = i;
+            break;
+          }
+        }
+      }
+
+      const visibleTurns = dialog.turns.slice(0, visibleLimit + 1);
+
+      const turnsHtml = visibleTurns.map((turn, idx) => {
         const isYou = turn.speaker.toLowerCase().includes('bạn') || turn.speaker.toLowerCase().includes('em');
         const shouldHide = isRoleplayMode && isYou && !revealedTurns[idx];
 
@@ -774,6 +796,7 @@
                   <div style="font-size: 12px; color: var(--muted);">Tự bật ra tiếng Trung hoặc gõ thử bên dưới:</div>
                   <input 
                     type="text" 
+                    id="turn-input-${idx}"
                     class="roleplay-input" 
                     placeholder="Gõ câu trả lời Phồn thể..." 
                     oninput="checkTurnInput(${idx}, this.value)"
@@ -794,6 +817,13 @@
         `;
       }).join('');
 
+      const remainingCount = dialog.turns.length - visibleTurns.length;
+      const footerHtml = isRoleplayMode ? (
+        remainingCount > 0
+          ? `<div class="progress-hint">⏳ Hoàn thành lượt trên để mở tiếp ${remainingCount} lượt hội thoại phía sau...</div>`
+          : `<div class="progress-hint" style="color:#86efac;">🎉 Đã hoàn thành toàn bộ đoạn hội thoại! <button class="btn-reveal-turn" style="margin-left:8px;" onclick="revealedTurns={}; renderDialogueView();">🔄 Luyện lại từ đầu</button></div>`
+      ) : '';
+
       container.innerHTML = `
         <div class="chat-box">
           <div class="chat-header">
@@ -801,8 +831,15 @@
             <button class="btn-action btn-delete" onclick="deleteCurrentDialogue()">Xóa bài này</button>
           </div>
           ${turnsHtml}
+          ${footerHtml}
         </div>
       `;
+
+      // Tự động focus vào ô nhập của lượt đang ẩn hiện tại
+      if (isRoleplayMode) {
+        const activeInput = document.getElementById(`turn-input-${visibleLimit}`);
+        if (activeInput) activeInput.focus();
+      }
     }
 
     function saveParsedDialogue() {
@@ -814,13 +851,11 @@
       const turns = [];
 
       lines.forEach(line => {
-        // Nhận diện dòng bắt đầu bằng "- Bạn:" hoặc "- Giáo sư:"
         const match = line.match(/^-?\s*(Bạn|Giáo sư|Thầy|Em)\s*:\s*(.+)$/i);
         if (match) {
           const speaker = match[1];
           let rest = match[2].trim();
 
-          // Tách phần nghĩa tiếng Việt trong ngoặc đơn cuối câu: (... )
           let vi = '';
           const viMatch = rest.match(/\(([^()]+)\)\s*$/);
           if (viMatch) {
@@ -828,7 +863,6 @@
             rest = rest.slice(0, viMatch.index).trim();
           }
 
-          // Tách phần Chữ Hán (kết thúc bằng dấu 。！？) và Pinyin phía sau
           let zh = rest;
           let pinyin = '';
           const zhEndMatch = rest.match(/^(.*[。！？!?])/);
@@ -854,6 +888,7 @@
 
       dialogues.push(newDialog);
       selectedDialogueId = newDialog.id;
+      revealedTurns = {};
       saveDialoguesToCloud();
 
       document.getElementById('dialogTitle').value = '';
