@@ -118,7 +118,13 @@
     }
     .context-zh { font-size: 17px; color: #f1f5f9; font-weight: 600; line-height: 1.5; }
 
-    .icon-audio { background: transparent; border: none; color: #38bdf8; font-size: 20px; cursor: pointer; padding: 4px; }
+    .icon-audio { background: transparent; border: none; color: #38bdf8; font-size: 18px; cursor: pointer; padding: 3px 5px; }
+    .icon-mini-btn {
+      background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border);
+      color: #cbd5e1; font-size: 12px; cursor: pointer; padding: 3px 7px; border-radius: 5px;
+    }
+    .icon-mini-btn:hover { background: rgba(255, 255, 255, 0.14); color: white; }
+    .icon-mini-del:hover { background: rgba(239, 68, 68, 0.25); border-color: var(--danger); color: #fca5a5; }
 
     .rating-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
     .rate-btn { padding: 12px 6px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; font-size: 14px; }
@@ -156,7 +162,7 @@
     .word-py { color: var(--pinyin); font-size: 13px; }
     .word-vi { color: var(--vietnamese); font-size: 14px; }
     .word-actions { display: flex; gap: 6px; }
-    .btn-action { padding: 6px 12px; border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; font-weight: bold; }
+    .btn-action { padding: 6px 10px; border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; font-weight: bold; }
     .btn-edit { background: var(--warning); }
     .btn-delete { background: var(--danger); }
 
@@ -175,12 +181,13 @@
       padding: 18px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 14px;
     }
     .chat-header {
-      display: flex; justify-content: space-between; align-items: center;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
       border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 4px;
     }
-    .chat-title { font-weight: bold; font-size: 16px; color: #a5b4fc; }
+    .chat-title { font-weight: bold; font-size: 16px; color: #a5b4fc; flex: 1; }
+    .chat-header-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
-    .bubble-row { display: flex; flex-direction: column; max-width: 92%; }
+    .bubble-row { display: flex; flex-direction: column; max-width: 94%; }
     .bubble-prof { align-self: flex-start; }
     .bubble-you { align-self: flex-end; }
 
@@ -197,9 +204,21 @@
       background: rgba(99, 102, 241, 0.18); border: 1px solid rgba(99, 102, 241, 0.45); border-top-right-radius: 4px;
     }
 
+    .bubble-toolbar {
+      display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+    }
+
     .b-zh { font-size: 17px; font-weight: bold; color: #ffffff; margin-bottom: 4px; }
     .b-py { font-size: 13px; color: var(--pinyin); margin-bottom: 4px; }
     .b-vi { font-size: 13px; color: #cbd5e1; font-style: italic; }
+
+    .turn-edit-box {
+      background: rgba(15, 23, 42, 0.85); border: 1px solid var(--primary);
+      border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 260px;
+    }
+    .turn-edit-box input, .turn-edit-box select {
+      padding: 7px 10px; font-size: 13px;
+    }
 
     .roleplay-mask {
       background: rgba(15, 23, 42, 0.7); border: 1px dashed #6366f1; border-radius: 10px;
@@ -237,7 +256,6 @@
   <div id="studyView" class="view active">
     <div id="statBox" class="stat-box">Đang tải dữ liệu...</div>
 
-    <!-- 3 chế độ học rõ ràng, không trộn ngẫu nhiên gây rối -->
     <div class="mode-bar">
       <button class="mode-btn active" id="mode-vi2zh" onclick="setStudyMode('vi2zh')">🇻🇳→🇹🇼 Gõ Phồn thể</button>
       <button class="mode-btn" id="mode-zh2vi" onclick="setStudyMode('zh2vi')">🇹🇼→🇻🇳 Đọc hiểu</button>
@@ -257,18 +275,20 @@
 
     <div id="dialogueContainer"></div>
 
-    <div class="form-card">
-      <h4 style="margin-top:0; color:#a5b4fc;">➕ Thêm đoạn hội thoại mới (Dán trực tiếp từ bài học)</h4>
+    <div class="form-card" id="dialogueFormCard">
+      <h4 id="dialogFormTitle" style="margin-top:0; color:#a5b4fc;">➕ Thêm đoạn hội thoại mới (Dán trực tiếp từ bài học)</h4>
+      <input type="hidden" id="editDialogueId" value="">
       <div class="form-group">
         <label for="dialogTitle">Tên chủ đề hội thoại:</label>
         <input type="text" id="dialogTitle" placeholder="vd: Ngày 2 - Báo cáo lỗi phần mềm với Giáo sư">
       </div>
       <div class="form-group">
-        <label for="dialogRawText">Dán nội dung hội thoại (giữ định dạng "- Bạn: ..." và "- Giáo sư: ..."):</label>
+        <label for="dialogRawText">Nội dung hội thoại (mỗi lượt 1 dòng bắt đầu bằng "- Bạn:" hoặc "- Giáo sư:"):</label>
         <textarea id="dialogRawText" rows="6" placeholder="- Bạn: 老師，剛才我在執行程式的時候，系統一直報錯。Lǎoshī, gāngcái wǒ zài zhíxíng chéngshì de shíhòu, xìtǒng yīzhí bàocuò.(Thưa thầy, vừa nãy lúc em chạy chương trình thì hệ thống cứ báo lỗi liên tục ạ.)
 - Giáo sư: 是什麼錯誤？你有先檢查一下嗎？Shì shénme cuòwù? Nǐ yǒu xiān jiǎnchá yīxià ma?(Lỗi gì vậy? Em đã kiểm tra qua trước chưa?)"></textarea>
       </div>
-      <button type="button" class="btn-submit" onclick="saveParsedDialogue()">Lưu hội thoại (Offline & Cloud)</button>
+      <button type="button" id="saveDialogBtn" class="btn-submit" onclick="saveParsedDialogue()">Lưu hội thoại (Offline & Cloud)</button>
+      <button type="button" id="cancelEditDialogBtn" class="btn-cancel" style="display:none;" onclick="resetDialogueForm()">Hủy chỉnh sửa</button>
     </div>
   </div>
 
@@ -320,7 +340,7 @@
     let cards = [];
     let currentCard = null;
     let currentCardKey = null;
-    let studyMode = 'vi2zh'; // Mặc định luôn là Việt -> Gõ Phồn thể, nhất quán 100%, không trộn ngẫu nhiên
+    let studyMode = 'vi2zh';
     let isAnswerShown = false;
     let userTypedAnswer = '';
 
@@ -366,8 +386,8 @@
     let isRoleplayMode = false;
     let revealedTurns = {};
     let turnTypedAnswers = {};
+    let editingTurnIndex = null;
 
-    // Loại bỏ thẻ trùng lặp theo chữ Phồn thể (giữ thẻ có tiến độ học mới nhất)
     function deduplicateCards(cardList) {
       const map = new Map();
       cardList.forEach(c => {
@@ -439,7 +459,7 @@
 
     loadFromLocalCache();
 
-    // ================= 2. KẾT NỐI FIREBASE (CHỈ ĐỌC 1 NHÁNH CHÍNH, KHÔNG GOM LẶP) =================
+    // ================= 2. KẾT NỐI FIREBASE =================
     const firebaseConfig = {
       apiKey: "AIzaSyBfIpqmiOwghVsSrNd_TSpS57Cz1O3qKyo",
       authDomain: "my-taiwanese-project.firebaseapp.com",
@@ -555,7 +575,6 @@
         let bestBranchItems = [];
 
         if (rootData && typeof rootData === 'object') {
-          // 1. Kiểm tra xem thẻ có nằm trực tiếp ở nhánh gốc '/' không
           const directRootCards = Object.entries(rootData)
             .filter(([k]) => k !== 'taiwanese_dialogues')
             .map(([k, val]) => (val && (val.pinyin || val.traditional || val.hanzi || val.word)) ? normalizeLoadedCard(val, k) : null)
@@ -565,7 +584,6 @@
             bestBranchName = '/';
             bestBranchItems = directRootCards;
           } else {
-            // 2. Chọn đúng 1 nhánh con chứa nhiều thẻ nhất (tránh cộng dồn lặp lại từ nhiều nhánh khác nhau)
             Object.keys(rootData).forEach((key) => {
               if (key === 'taiwanese_dialogues') return;
               const branch = rootData[key];
@@ -605,7 +623,10 @@
         }
         const data = snapshot.val();
         if (data) {
-          dialogues = Object.values(data);
+          dialogues = Object.values(data).map(d => ({
+            ...d,
+            turns: Array.isArray(d.turns) ? d.turns : Object.values(d.turns || {})
+          }));
           if (!dialogues.find(d => d.id == selectedDialogueId) && dialogues.length > 0) {
             selectedDialogueId = dialogues[0].id;
           }
@@ -667,6 +688,9 @@
 
     function saveDialoguesToCloud() {
       saveToLocalCache();
+      renderDialogueSelector();
+      renderDialogueView();
+
       if (!db || !navigator.onLine) {
         localStorage.setItem(LS_PENDING_DIALOGUES_SYNC, '1');
         updateSyncStatusBanner();
@@ -831,7 +855,7 @@
       `;
     }
 
-    // ================= 4. TAB 1: ÔN TẬP THẺ (KHÔNG TRỘN NGẪU NHIÊN, KHÔNG LẶP THẺ) =================
+    // ================= 4. TAB 1: ÔN TẬP THẺ =================
     function setStudyMode(mode) {
       studyMode = mode;
       document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
@@ -1022,7 +1046,7 @@
       }
     }
 
-    // ================= 5. TAB 2: LUYỆN HỘI THOẠI =================
+    // ================= 5. TAB 2: LUYỆN HỘI THOẠI (SỬA TÊN, SỬA/XÓA TỪNG CÂU, SỬA CẢ BÀI) =================
     function renderDialogueSelector() {
       const select = document.getElementById('dialogueSelect');
       if (!select) return;
@@ -1035,6 +1059,7 @@
       selectedDialogueId = Number(id);
       revealedTurns = {};
       turnTypedAnswers = {};
+      editingTurnIndex = null;
       renderDialogueView();
     }
 
@@ -1042,6 +1067,7 @@
       isRoleplayMode = !isRoleplayMode;
       revealedTurns = {};
       turnTypedAnswers = {};
+      editingTurnIndex = null;
       const btn = document.getElementById('roleplayToggleBtn');
       btn.classList.toggle('active', isRoleplayMode);
       btn.textContent = isRoleplayMode ? '🎭 Đóng vai: ĐANG BẬT' : '🎭 Đóng vai: TẮT';
@@ -1088,14 +1114,106 @@
       playNext();
     }
 
+    // Đổi tên chủ đề bài hội thoại hiện tại
+    function renameCurrentDialogue() {
+      const dialog = dialogues.find(d => d.id == selectedDialogueId);
+      if (!dialog) return;
+      const newTitle = prompt('Nhập tên mới cho chủ đề hội thoại:', dialog.title);
+      if (newTitle !== null && newTitle.trim() !== '') {
+        dialog.title = newTitle.trim();
+        saveDialoguesToCloud();
+      }
+    }
+
+    // Mở khung chỉnh sửa từng câu thoại (turn)
+    function startEditTurn(idx) {
+      editingTurnIndex = idx;
+      renderDialogueView();
+    }
+
+    function cancelEditTurn() {
+      editingTurnIndex = null;
+      renderDialogueView();
+    }
+
+    function saveEditedTurn(idx) {
+      const dialog = dialogues.find(d => d.id == selectedDialogueId);
+      if (!dialog || !dialog.turns[idx]) return;
+
+      const speaker = document.getElementById(`edit-turn-speaker-${idx}`).value;
+      const zh = document.getElementById(`edit-turn-zh-${idx}`).value.trim();
+      const pinyin = document.getElementById(`edit-turn-py-${idx}`).value.trim();
+      const vi = document.getElementById(`edit-turn-vi-${idx}`).value.trim();
+
+      if (!zh) {
+        alert('Nội dung chữ Phồn thể không được để trống!');
+        return;
+      }
+
+      dialog.turns[idx] = { speaker, zh, pinyin, vi };
+      editingTurnIndex = null;
+      saveDialoguesToCloud();
+    }
+
+    // Xóa 1 câu thoại bất kỳ bên trong bài hội thoại
+    function deleteTurn(idx) {
+      const dialog = dialogues.find(d => d.id == selectedDialogueId);
+      if (!dialog) return;
+      if (dialog.turns.length <= 1) {
+        alert('Đoạn hội thoại phải có ít nhất 1 câu. Nếu muốn xóa hẳn bài này, hãy bấm nút "Xóa bài".');
+        return;
+      }
+      if (confirm('Xóa câu thoại này khỏi đoạn hội thoại?')) {
+        dialog.turns.splice(idx, 1);
+        editingTurnIndex = null;
+        revealedTurns = {};
+        turnTypedAnswers = {};
+        saveDialoguesToCloud();
+      }
+    }
+
+    // Đưa toàn bộ nội dung bài hội thoại hiện tại xuống form để chỉnh sửa hàng loạt
+    function loadDialogueToFormForEdit() {
+      const dialog = dialogues.find(d => d.id == selectedDialogueId);
+      if (!dialog) return;
+
+      document.getElementById('editDialogueId').value = dialog.id;
+      document.getElementById('dialogTitle').value = dialog.title;
+
+      const formattedLines = dialog.turns.map(t => {
+        const sp = (t.speaker.toLowerCase().includes('bạn') || t.speaker.toLowerCase().includes('em')) ? 'Bạn' : 'Giáo sư';
+        const pyPart = t.pinyin ? ` ${t.pinyin}` : '';
+        const viPart = t.vi ? `(${t.vi})` : '';
+        return `- ${sp}: ${t.zh}${pyPart}${viPart}`;
+      }).join('\n');
+
+      document.getElementById('dialogRawText').value = formattedLines;
+      document.getElementById('dialogFormTitle').textContent = '✏️ Đang chỉnh sửa nội dung hội thoại';
+      document.getElementById('saveDialogBtn').textContent = 'Cập nhật hội thoại';
+      document.getElementById('cancelEditDialogBtn').style.display = 'block';
+
+      document.getElementById('dialogueFormCard').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetDialogueForm() {
+      document.getElementById('editDialogueId').value = '';
+      document.getElementById('dialogTitle').value = '';
+      document.getElementById('dialogRawText').value = '';
+      document.getElementById('dialogFormTitle').textContent = '➕ Thêm đoạn hội thoại mới (Dán trực tiếp từ bài học)';
+      document.getElementById('saveDialogBtn').textContent = 'Lưu hội thoại (Offline & Cloud)';
+      document.getElementById('cancelEditDialogBtn').style.display = 'none';
+    }
+
     function deleteCurrentDialogue() {
       if (dialogues.length <= 1) {
         alert('Cần giữ lại ít nhất 1 đoạn hội thoại mẫu.');
         return;
       }
-      if (confirm('Xóa đoạn hội thoại này?')) {
+      if (confirm('Xóa toàn bộ đoạn hội thoại này?')) {
         dialogues = dialogues.filter(d => d.id != selectedDialogueId);
         selectedDialogueId = dialogues[0].id;
+        editingTurnIndex = null;
+        resetDialogueForm();
         saveDialoguesToCloud();
       }
     }
@@ -1105,10 +1223,11 @@
       const dialog = dialogues.find(d => d.id == selectedDialogueId) || dialogues[0];
       if (!dialog) return;
 
-      let visibleLimit = dialog.turns.length - 1;
+      const turnsList = dialog.turns || [];
+      let visibleLimit = turnsList.length - 1;
       if (isRoleplayMode) {
-        for (let i = 0; i < dialog.turns.length; i++) {
-          const isYouTurn = dialog.turns[i].speaker.toLowerCase().includes('bạn') || dialog.turns[i].speaker.toLowerCase().includes('em');
+        for (let i = 0; i < turnsList.length; i++) {
+          const isYouTurn = turnsList[i].speaker.toLowerCase().includes('bạn') || turnsList[i].speaker.toLowerCase().includes('em');
           if (isYouTurn && !revealedTurns[i]) {
             visibleLimit = i;
             break;
@@ -1116,16 +1235,38 @@
         }
       }
 
-      const visibleTurns = dialog.turns.slice(0, visibleLimit + 1);
+      const visibleTurns = turnsList.slice(0, visibleLimit + 1);
 
       const turnsHtml = visibleTurns.map((turn, idx) => {
         const isYou = turn.speaker.toLowerCase().includes('bạn') || turn.speaker.toLowerCase().includes('em');
         const shouldHide = isRoleplayMode && isYou && !revealedTurns[idx];
+        const isEditingThis = (editingTurnIndex === idx);
 
         let turnCompareHtml = '';
         if (isYou && revealedTurns[idx] && turnTypedAnswers[idx]) {
           const evalRes = evaluateFlexibleChinese(turnTypedAnswers[idx], turn.zh);
           turnCompareHtml = renderComparisonHtml(evalRes);
+        }
+
+        if (isEditingThis) {
+          return `
+            <div class="bubble-row ${isYou ? 'bubble-you' : 'bubble-prof'}">
+              <div class="speaker-tag">✏️ Đang sửa lượt thoại #${idx + 1}</div>
+              <div class="turn-edit-box">
+                <select id="edit-turn-speaker-${idx}">
+                  <option value="Bạn" ${isYou ? 'selected' : ''}>🧑‍💻 Bạn (Sinh viên)</option>
+                  <option value="Giáo sư" ${!isYou ? 'selected' : ''}>👨‍🏫 Giáo sư Đài Loan</option>
+                </select>
+                <input type="text" id="edit-turn-zh-${idx}" value="${escapeHtml(turn.zh)}" placeholder="Chữ Phồn thể">
+                <input type="text" id="edit-turn-py-${idx}" value="${escapeHtml(turn.pinyin || '')}" placeholder="Pinyin (tùy chọn)">
+                <input type="text" id="edit-turn-vi-${idx}" value="${escapeHtml(turn.vi || '')}" placeholder="Nghĩa tiếng Việt (tùy chọn)">
+                <div style="display:flex; gap:6px; justify-content:flex-end;">
+                  <button class="btn-action" style="background:#475569;" onclick="cancelEditTurn()">Hủy</button>
+                  <button class="btn-action" style="background:var(--primary);" onclick="saveEditedTurn(${idx})">Lưu câu này</button>
+                </div>
+              </div>
+            </div>
+          `;
         }
 
         return `
@@ -1154,7 +1295,11 @@
                 ${turnCompareHtml}
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                   <div class="b-zh">${escapeHtml(turn.zh)}</div>
-                  <button class="icon-audio" data-speak="${escapeHtml(turn.zh)}" onclick="speakTaiwanese(this.dataset.speak, event)" title="Nghe câu này">🔊</button>
+                  <div class="bubble-toolbar">
+                    <button class="icon-audio" data-speak="${escapeHtml(turn.zh)}" onclick="speakTaiwanese(this.dataset.speak, event)" title="Nghe câu này">🔊</button>
+                    <button class="icon-mini-btn" onclick="startEditTurn(${idx})" title="Sửa câu thoại này">✏️</button>
+                    <button class="icon-mini-btn icon-mini-del" onclick="deleteTurn(${idx})" title="Xóa câu thoại này">🗑️</button>
+                  </div>
                 </div>
                 ${turn.pinyin ? `<div class="b-py">${escapeHtml(turn.pinyin)}</div>` : ''}
                 ${turn.vi ? `<div class="b-vi">(${escapeHtml(turn.vi)})</div>` : ''}
@@ -1164,7 +1309,7 @@
         `;
       }).join('');
 
-      const remainingCount = dialog.turns.length - visibleTurns.length;
+      const remainingCount = turnsList.length - visibleTurns.length;
       const footerHtml = isRoleplayMode ? (
         remainingCount > 0
           ? `<div class="progress-hint">⏳ Hoàn thành lượt trên để mở tiếp ${remainingCount} lượt hội thoại phía sau...</div>`
@@ -1175,14 +1320,18 @@
         <div class="chat-box">
           <div class="chat-header">
             <div class="chat-title">${escapeHtml(dialog.title)}</div>
-            <button class="btn-action btn-delete" onclick="deleteCurrentDialogue()">Xóa bài này</button>
+            <div class="chat-header-actions">
+              <button class="btn-action btn-edit" onclick="renameCurrentDialogue()" title="Đổi tên chủ đề">✏️ Sửa tên</button>
+              <button class="btn-action" style="background:#0284c7;" onclick="loadDialogueToFormForEdit()" title="Sửa toàn bộ nội dung bài">📝 Sửa cả bài</button>
+              <button class="btn-action btn-delete" onclick="deleteCurrentDialogue()" title="Xóa bài hội thoại này">Xóa bài</button>
+            </div>
           </div>
           ${turnsHtml}
           ${footerHtml}
         </div>
       `;
 
-      if (isRoleplayMode) {
+      if (isRoleplayMode && editingTurnIndex === null) {
         const activeInput = document.getElementById(`turn-input-${visibleLimit}`);
         if (activeInput) activeInput.focus();
       }
@@ -1191,6 +1340,7 @@
     function saveParsedDialogue() {
       const title = document.getElementById('dialogTitle').value.trim() || ('Hội thoại ' + new Date().toLocaleDateString());
       const raw = document.getElementById('dialogRawText').value.trim();
+      const editId = document.getElementById('editDialogueId').value;
       if (!raw) return;
 
       const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
@@ -1226,21 +1376,29 @@
         return;
       }
 
-      const newDialog = {
-        id: Date.now(),
-        title,
-        turns
-      };
+      if (editId) {
+        const idx = dialogues.findIndex(d => String(d.id) === String(editId));
+        if (idx !== -1) {
+          dialogues[idx].title = title;
+          dialogues[idx].turns = turns;
+          selectedDialogueId = dialogues[idx].id;
+        }
+      } else {
+        const newDialog = {
+          id: Date.now(),
+          title,
+          turns
+        };
+        dialogues.push(newDialog);
+        selectedDialogueId = newDialog.id;
+      }
 
-      dialogues.push(newDialog);
-      selectedDialogueId = newDialog.id;
       revealedTurns = {};
       turnTypedAnswers = {};
+      editingTurnIndex = null;
+      resetDialogueForm();
       saveDialoguesToCloud();
-
-      document.getElementById('dialogTitle').value = '';
-      document.getElementById('dialogRawText').value = '';
-      alert('Đã lưu đoạn hội thoại thành công!');
+      alert(editId ? 'Đã cập nhật đoạn hội thoại!' : 'Đã lưu đoạn hội thoại thành công!');
     }
 
     // ================= 6. TAB 3: QUẢN LÝ TỪ VỰNG =================
