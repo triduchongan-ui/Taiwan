@@ -664,10 +664,12 @@
     }
 
     // Lọc lấy riêng phần chữ Hán Phồn thể (loại bỏ Pinyin Latin cũ nếu có)
-    function extractHanziOnly(text) {
-      if (!text) return '';
-      return String(text).replace(/[a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü()（）]+/g, ' ').replace(/\s+/g, ' ').trim();
-    }
+   function extractHanziOnly(text) {
+  if (!text) return '';
+  // Chỉ giữ lại chữ Hán Phồn thể và dấu câu tiếng Trung, loại bỏ hoàn toàn cả tiếng Việt có dấu lẫn Pinyin
+  const matches = String(text).match(/[\u4e00-\u9fff\u3400-\u4dbf，。！？、；：「」『』（）…—·]+/g);
+  return matches ? matches.join(' ').trim() : '';
+}
 
     function speakTaiwanese(text, e, onEndCallback) {
       if (e) e.stopPropagation();
