@@ -46,9 +46,9 @@
       border-radius: 8px; margin-bottom: 14px; font-weight: bold; color: #a5b4fc; font-size: 14px;
     }
 
-    .mode-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+    .mode-bar { display: flex; gap: 8px; margin-bottom: 14px; }
     .mode-btn {
-      flex: 1; min-width: 115px; padding: 8px 8px; font-size: 12px; font-weight: bold;
+      flex: 1; padding: 9px 8px; font-size: 12px; font-weight: bold;
       border-radius: 8px; border: 1px solid var(--border); background: var(--sub-bg);
       color: var(--muted); cursor: pointer; transition: all 0.2s;
     }
@@ -237,9 +237,9 @@
   <div id="studyView" class="view active">
     <div id="statBox" class="stat-box">Đang tải dữ liệu...</div>
 
+    <!-- 3 chế độ học rõ ràng, không trộn ngẫu nhiên gây rối -->
     <div class="mode-bar">
-      <button class="mode-btn active" id="mode-mix" onclick="setStudyMode('mix')">🎲 Trộn ngẫu nhiên</button>
-      <button class="mode-btn" id="mode-vi2zh" onclick="setStudyMode('vi2zh')">🇻🇳→🇹🇼 Gõ Phồn thể</button>
+      <button class="mode-btn active" id="mode-vi2zh" onclick="setStudyMode('vi2zh')">🇻🇳→🇹🇼 Gõ Phồn thể</button>
       <button class="mode-btn" id="mode-zh2vi" onclick="setStudyMode('zh2vi')">🇹🇼→🇻🇳 Đọc hiểu</button>
       <button class="mode-btn" id="mode-audio" onclick="setStudyMode('audio')">🎧 Nghe phản xạ</button>
     </div>
@@ -308,20 +308,19 @@
   </div>
 
   <script>
-    // ================= 1. KHÓA CỨNG BỘ NHỚ CỤC BỘ DÙNG CHUNG MỌI PHIÊN BẢN CODE =================
-    const LS_CARDS_KEY = 'tw_anki_cards_master_v1';
-    const LS_NODE_KEY = 'tw_anki_detected_node_master_v1';
-    const LS_DIALOGUES_KEY = 'tw_anki_dialogues_master_v1';
-    const LS_PENDING_CARDS_SYNC = 'tw_anki_pending_cards_sync_master_v1';
-    const LS_DELETED_CARD_IDS = 'tw_anki_deleted_card_ids_master_v1';
-    const LS_PENDING_DIALOGUES_SYNC = 'tw_anki_pending_dialogues_sync_master_v1';
+    // ================= 1. BỘ NHỚ CỤC BỘ & CHỐNG TRÙNG LẶP =================
+    const LS_CARDS_KEY = 'tw_anki_cards_master_v2';
+    const LS_NODE_KEY = 'tw_anki_detected_node_master_v2';
+    const LS_DIALOGUES_KEY = 'tw_anki_dialogues_master_v2';
+    const LS_PENDING_CARDS_SYNC = 'tw_anki_pending_cards_sync_master_v2';
+    const LS_DELETED_CARD_IDS = 'tw_anki_deleted_card_ids_master_v2';
+    const LS_PENDING_DIALOGUES_SYNC = 'tw_anki_pending_dialogues_sync_master_v2';
 
     let detectedCardNode = localStorage.getItem(LS_NODE_KEY) || 'anki_cards';
     let cards = [];
     let currentCard = null;
-    let currentCardId = null;
-    let activePromptType = 'vi2zh';
-    let studyMode = 'mix';
+    let currentCardKey = null;
+    let studyMode = 'vi2zh'; // Mặc định luôn là Việt -> Gõ Phồn thể, nhất quán 100%, không trộn ngẫu nhiên
     let isAnswerShown = false;
     let userTypedAnswer = '';
 
@@ -368,11 +367,29 @@
     let revealedTurns = {};
     let turnTypedAnswers = {};
 
+    // Loại bỏ thẻ trùng lặp theo chữ Phồn thể (giữ thẻ có tiến độ học mới nhất)
+    function deduplicateCards(cardList) {
+      const map = new Map();
+      cardList.forEach(c => {
+        const normZh = String(c.traditional || '').trim();
+        const dedupKey = normZh || String(c._firebaseKey || c.id);
+        if (!map.has(dedupKey)) {
+          map.set(dedupKey, c);
+        } else {
+          const existing = map.get(dedupKey);
+          if (resolveCardDueTime(c) > resolveCardDueTime(existing)) {
+            map.set(dedupKey, c);
+          }
+        }
+      });
+      return Array.from(map.values());
+    }
+
     function loadFromLocalCache() {
       try {
         const cachedCards = localStorage.getItem(LS_CARDS_KEY);
         if (cachedCards) {
-          cards = JSON.parse(cachedCards) || [];
+          cards = deduplicateCards(JSON.parse(cachedCards) || []);
         }
         const cachedDialogues = localStorage.getItem(LS_DIALOGUES_KEY);
         if (cachedDialogues) {
@@ -415,14 +432,14 @@
         el.textContent = extraMsg;
         el.style.color = '#86efac';
       } else {
-        el.textContent = `🟢 Đã đồng bộ Cloud & Bảo toàn tiến độ (${cards.length} thẻ • nhánh: ${detectedCardNode})`;
+        el.textContent = `🟢 Đã đồng bộ Cloud (${cards.length} thẻ • nhánh: ${detectedCardNode})`;
         el.style.color = '#86efac';
       }
     }
 
     loadFromLocalCache();
 
-    // ================= 2. KẾT NỐI FIREBASE & BẢO TOÀN KEY GỐC =================
+    // ================= 2. KẾT NỐI FIREBASE (CHỈ ĐỌC 1 NHÁNH CHÍNH, KHÔNG GOM LẶP) =================
     const firebaseConfig = {
       apiKey: "AIzaSyBfIpqmiOwghVsSrNd_TSpS57Cz1O3qKyo",
       authDomain: "my-taiwanese-project.firebaseapp.com",
@@ -449,7 +466,6 @@
       console.warn('Khởi tạo Firebase ở chế độ Offline:', err);
     }
 
-    // Đọc chuẩn mọi định dạng mốc thời gian ôn tập cũ để không bao giờ bị reset tiến độ
     function resolveCardDueTime(card) {
       if (typeof card.dueTimestamp === 'number' && card.dueTimestamp > 0) return card.dueTimestamp;
       if (typeof card.nextReview === 'number' && card.nextReview > 0) return card.nextReview;
@@ -458,7 +474,7 @@
         const parsed = new Date(card.dueDate).getTime();
         if (!isNaN(parsed)) return parsed;
       }
-      return 0; // Thẻ mới chưa học bao giờ
+      return 0;
     }
 
     function normalizeLoadedCard(rawItem, firebaseKey) {
@@ -469,7 +485,7 @@
 
       return {
         ...rawItem,
-        _firebaseKey: String(firebaseKey), // Giữ nguyên tên key thật trên Firebase để cập nhật chính xác
+        _firebaseKey: String(firebaseKey),
         id: rawItem.id || firebaseKey,
         traditional: zh || '',
         pinyin: rawItem.pinyin || rawItem.py || '',
@@ -482,7 +498,6 @@
     function getCleanCardPayload(card) {
       const payload = { ...card };
       delete payload._firebaseKey;
-      // Cập nhật đồng bộ tất cả các trường thời gian có thể tồn tại trong bản cũ
       payload.dueTimestamp = card.dueTimestamp || Date.now();
       payload.nextReview = payload.dueTimestamp;
       return payload;
@@ -536,33 +551,43 @@
         }
 
         const rootData = snapshot.val();
-        let foundCards = [];
+        let bestBranchName = detectedCardNode;
+        let bestBranchItems = [];
 
         if (rootData && typeof rootData === 'object') {
-          Object.keys(rootData).forEach((key) => {
-            if (key === 'taiwanese_dialogues') return;
+          // 1. Kiểm tra xem thẻ có nằm trực tiếp ở nhánh gốc '/' không
+          const directRootCards = Object.entries(rootData)
+            .filter(([k]) => k !== 'taiwanese_dialogues')
+            .map(([k, val]) => (val && (val.pinyin || val.traditional || val.hanzi || val.word)) ? normalizeLoadedCard(val, k) : null)
+            .filter(Boolean);
 
-            const branch = rootData[key];
-            if (branch && typeof branch === 'object') {
-              const directCard = normalizeLoadedCard(branch, key);
-              if (directCard && (branch.pinyin || branch.traditional || branch.hanzi || branch.word)) {
-                foundCards.push(directCard);
-                detectedCardNode = '/';
-              } else {
+          if (directRootCards.length > 0) {
+            bestBranchName = '/';
+            bestBranchItems = directRootCards;
+          } else {
+            // 2. Chọn đúng 1 nhánh con chứa nhiều thẻ nhất (tránh cộng dồn lặp lại từ nhiều nhánh khác nhau)
+            Object.keys(rootData).forEach((key) => {
+              if (key === 'taiwanese_dialogues') return;
+              const branch = rootData[key];
+              if (branch && typeof branch === 'object') {
                 const subItems = Object.entries(branch)
                   .map(([subKey, val]) => normalizeLoadedCard(val, subKey))
                   .filter(Boolean);
 
-                if (subItems.length > 0) {
-                  foundCards = foundCards.concat(subItems);
-                  detectedCardNode = key;
+                if (subItems.length > bestBranchItems.length) {
+                  bestBranchItems = subItems;
+                  bestBranchName = key;
                 }
               }
-            }
-          });
+            });
+          }
         }
 
-        cards = foundCards;
+        if (bestBranchItems.length > 0) {
+          detectedCardNode = bestBranchName;
+          cards = deduplicateCards(bestBranchItems);
+        }
+
         saveToLocalCache();
         updateSyncStatusBanner();
         renderStudyCard();
@@ -605,7 +630,6 @@
       };
     }
 
-    // Chỉ cập nhật đúng thẻ vừa thay đổi lên Firebase, không ghi đè toàn bộ mảng
     function saveSingleCardToCloud(card) {
       saveToLocalCache();
       const key = card._firebaseKey || String(card.id);
@@ -688,7 +712,6 @@
       }
     }
 
-    // Chỉ giữ lại chữ Hán Phồn thể và dấu câu tiếng Trung, loại bỏ hoàn toàn cả tiếng Việt có dấu lẫn Pinyin
     function extractHanziOnly(text) {
       if (!text) return '';
       const matches = String(text).match(/[\u4e00-\u9fff\u3400-\u4dbf，。！？、；：「」『』（）…—·]+/g);
@@ -722,7 +745,7 @@
         .replace(/'/g, "&#039;");
     }
 
-    // ================= 3. CHẤM ĐIỂM THEO Ý CHÍNH & TỪ KHÓA CỐT LÕI =================
+    // ================= 3. CHẤM ĐIỂM THEO Ý CHÍNH =================
     const ZH_STOP_WORDS = new Set([
       '的', '了', '啊', '吧', '嗎', '呢', '喔', '呀', '哦', '啦', '嘛',
       '就', '也', '還', '都', '很', '太', '真', '好', '在', '是', '有',
@@ -808,23 +831,15 @@
       `;
     }
 
-    // ================= 4. TAB 1: ÔN TẬP THẺ =================
+    // ================= 4. TAB 1: ÔN TẬP THẺ (KHÔNG TRỘN NGẪU NHIÊN, KHÔNG LẶP THẺ) =================
     function setStudyMode(mode) {
       studyMode = mode;
       document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
       document.getElementById('mode-' + mode).classList.add('active');
-      currentCardId = null;
+      currentCardKey = null;
       isAnswerShown = false;
       userTypedAnswer = '';
       renderStudyCard();
-    }
-
-    function pickPromptTypeForCard() {
-      if (studyMode !== 'mix') return studyMode;
-      const r = Math.random();
-      if (r < 0.5) return 'vi2zh';
-      if (r < 0.8) return 'zh2vi';
-      return 'audio';
     }
 
     function updateCardSchedule(card, quality) {
@@ -847,13 +862,13 @@
     function handleRating(quality) {
       if (!currentCard) return;
       const updatedCard = updateCardSchedule(currentCard, quality);
-      const index = cards.findIndex(c => c._firebaseKey === currentCard._firebaseKey || c.id === currentCard.id);
+      const index = cards.findIndex(c => String(c._firebaseKey || c.id) === String(currentCard._firebaseKey || currentCard.id));
       if (index !== -1) cards[index] = updatedCard;
 
       saveSingleCardToCloud(updatedCard);
       isAnswerShown = false;
       userTypedAnswer = '';
-      currentCardId = null;
+      currentCardKey = null;
       renderStudyCard();
     }
 
@@ -887,28 +902,28 @@
       }
 
       currentCard = dueCards[0];
+      const cardKey = String(currentCard._firebaseKey || currentCard.id);
       const zhText = currentCard.traditional || currentCard.word || '';
       const pyText = currentCard.pinyin || '';
       const viText = currentCard.vietnamese || currentCard.meaning || '';
       const exHanziOnly = extractHanziOnly(currentCard.example || '');
 
-      if (currentCardId !== currentCard.id) {
-        currentCardId = currentCard.id;
-        activePromptType = pickPromptTypeForCard();
-        if (activePromptType === 'audio') {
+      if (currentCardKey !== cardKey) {
+        currentCardKey = cardKey;
+        if (studyMode === 'audio') {
           setTimeout(() => speakTaiwanese(zhText), 200);
         }
       }
 
       let frontHtml = '';
       let placeholderText = '';
-      if (activePromptType === 'vi2zh') {
+      if (studyMode === 'vi2zh') {
         frontHtml = `
-          <span class="mode-badge badge-vi">🇻🇳 Phản xạ: Diễn đạt lại bằng chữ Phồn thể</span>
+          <span class="mode-badge badge-vi">🇻🇳 Phản xạ: Gõ chữ Phồn thể</span>
           <div class="front-prompt-vi">${escapeHtml(viText)}</div>
         `;
-        placeholderText = 'Gõ ý chính bằng Chữ Phồn thể (có thể lược bớt từ đệm)...';
-      } else if (activePromptType === 'audio') {
+        placeholderText = 'Gõ ý chính bằng Chữ Phồn thể...';
+      } else if (studyMode === 'audio') {
         frontHtml = `
           <span class="mode-badge badge-audio">🎧 Nghe phản xạ (Giọng Đài Loan)</span>
           <div class="front-prompt-audio">
@@ -921,7 +936,7 @@
           <span class="mode-badge badge-zh">🇹🇼 Đọc hiểu: Chữ Phồn thể</span>
           <div class="front-prompt-zh">${escapeHtml(zhText)}</div>
         `;
-        placeholderText = 'Gõ Chữ Phồn thể, Pinyin hoặc Nghĩa...';
+        placeholderText = 'Gõ Nghĩa tiếng Việt hoặc Pinyin...';
       }
 
       let comparisonHtml = '';
@@ -1275,7 +1290,7 @@
         }
       } else {
         const newCard = createCard(traditional, pinyin, vietnamese, example);
-        cards.push(newCard);
+        cards = deduplicateCards([...cards, newCard]);
         saveSingleCardToCloud(newCard);
       }
 
