@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anki Taiwanese Chinese - Phản Xạ Phòng Lab</title>
+  <title>Anki Taiwanese Chinese - Phản Xạ Phòng Lab (Offline & Cloud)</title>
   <style>
     :root {
       --bg: #181c24;
@@ -116,7 +116,7 @@
       display: flex; justify-content: space-between; align-items: center;
       color: #38bdf8; font-size: 13px; font-weight: bold; margin-bottom: 8px;
     }
-    .context-zh { font-size: 17px; color: #f1f5f9; font-weight: 600; }
+    .context-zh { font-size: 17px; color: #f1f5f9; font-weight: 600; line-height: 1.5; }
 
     .icon-audio { background: transparent; border: none; color: #38bdf8; font-size: 20px; cursor: pointer; padding: 4px; }
 
@@ -231,7 +231,7 @@
     <button class="tab-btn" onclick="switchTab('add')">Thêm / Quản lý</button>
   </div>
 
-  <div class="sync-status" id="syncStatus">🔄 Đang kết nối Cloud...</div>
+  <div class="sync-status" id="syncStatus">🔄 Đang khởi tạo dữ liệu Offline & Cloud...</div>
 
   <!-- ================= TAB 1: ÔN TẬP THẺ ================= -->
   <div id="studyView" class="view active">
@@ -268,7 +268,7 @@
         <textarea id="dialogRawText" rows="6" placeholder="- Bạn: 老師，剛才我在執行程式的時候，系統一直報錯。Lǎoshī, gāngcái wǒ zài zhíxíng chéngshì de shíhòu, xìtǒng yīzhí bàocuò.(Thưa thầy, vừa nãy lúc em chạy chương trình thì hệ thống cứ báo lỗi liên tục ạ.)
 - Giáo sư: 是什麼錯誤？你有先檢查一下嗎？Shì shénme cuòwù? Nǐ yǒu xiān jiǎnchá yīxià ma?(Lỗi gì vậy? Em đã kiểm tra qua trước chưa?)"></textarea>
       </div>
-      <button type="button" class="btn-submit" onclick="saveParsedDialogue()">Lưu hội thoại lên Cloud</button>
+      <button type="button" class="btn-submit" onclick="saveParsedDialogue()">Lưu hội thoại (Offline & Cloud)</button>
     </div>
   </div>
 
@@ -292,11 +292,11 @@
           <input type="text" id="vietnamese" placeholder="vd: Máy tính" required>
         </div>
         <div class="form-group">
-          <label for="example">Ví dụ ngữ cảnh (Chữ Phồn thể):</label>
-          <textarea id="example" rows="2" placeholder="vd: 老師，我的電腦突然當機了。"></textarea>
+          <label for="example">Ví dụ ngữ cảnh (Chỉ cần dán chữ Phồn thể):</label>
+          <textarea id="example" rows="2" placeholder="vd: 請教授看一下我的螢幕"></textarea>
         </div>
 
-        <button type="submit" id="submitBtn" class="btn-submit">Lưu vào bộ thẻ (Tự đồng bộ)</button>
+        <button type="submit" id="submitBtn" class="btn-submit">Lưu vào bộ thẻ (Offline & Cloud)</button>
         <button type="button" id="cancelEditBtn" class="btn-cancel" style="display:none;" onclick="resetForm()">Hủy sửa</button>
       </form>
     </div>
@@ -308,23 +308,15 @@
   </div>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyBfIpqmiOwghVsSrNd_TSpS57Cz1O3qKyo",
-      authDomain: "my-taiwanese-project.firebaseapp.com",
-      databaseURL: "https://my-taiwanese-project-default-rtdb.firebaseio.com",
-      projectId: "my-taiwanese-project",
-      storageBucket: "my-taiwanese-project.firebasestorage.app",
-      messagingSenderId: "1000055620120",
-      appId: "1:1000055620120:web:1fa8c1f96f77c2314c796d",
-      measurementId: "G-JJ6BKYJMBY"
-    };
+    // ================= 1. CẤU HÌNH LOCAL STORAGE & OFFLINE SYNC =================
+    const LS_CARDS_KEY = 'tw_anki_cards_cache_v1';
+    const LS_NODE_KEY = 'tw_anki_detected_node_v1';
+    const LS_DIALOGUES_KEY = 'tw_anki_dialogues_cache_v1';
+    const LS_PENDING_CARDS_SYNC = 'tw_anki_pending_cards_sync_v1';
+    const LS_DELETED_CARD_IDS = 'tw_anki_deleted_card_ids_v1';
+    const LS_PENDING_DIALOGUES_SYNC = 'tw_anki_pending_dialogues_sync_v1';
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const rootRef = db.ref('/');
-    const dialoguesRef = db.ref('taiwanese_dialogues');
-
-    let detectedCardNode = 'anki_cards'; // Tự động cập nhật theo tên nhánh cũ thực tế trên Firebase
+    let detectedCardNode = localStorage.getItem(LS_NODE_KEY) || 'anki_cards';
     let cards = [];
     let currentCard = null;
     let currentCardId = null;
@@ -376,7 +368,88 @@
     let revealedTurns = {};
     let turnTypedAnswers = {};
 
-    // Hàm trích xuất chuẩn hóa từ vựng bất kể tên trường cũ là gì (traditional, hanzi, word, zh...)
+    // Nạp ngay dữ liệu từ máy (LocalStorage) trước khi kết nối mạng -> Mở web Offline dùng được ngay 0ms
+    function loadFromLocalCache() {
+      try {
+        const cachedCards = localStorage.getItem(LS_CARDS_KEY);
+        if (cachedCards) {
+          cards = JSON.parse(cachedCards) || [];
+        }
+        const cachedDialogues = localStorage.getItem(LS_DIALOGUES_KEY);
+        if (cachedDialogues) {
+          const parsedD = JSON.parse(cachedDialogues);
+          if (Array.isArray(parsedD) && parsedD.length > 0) {
+            dialogues = parsedD;
+            selectedDialogueId = dialogues[0].id;
+          }
+        }
+      } catch (e) {
+        console.warn('Lỗi đọc cache cục bộ:', e);
+      }
+      updateSyncStatusBanner();
+      renderStudyCard();
+      renderWordList();
+      renderDialogueSelector();
+      renderDialogueView();
+    }
+
+    function saveToLocalCache() {
+      try {
+        localStorage.setItem(LS_CARDS_KEY, JSON.stringify(cards));
+        localStorage.setItem(LS_NODE_KEY, detectedCardNode);
+        localStorage.setItem(LS_DIALOGUES_KEY, JSON.stringify(dialogues));
+      } catch (e) {
+        console.warn('Lỗi lưu cache cục bộ:', e);
+      }
+    }
+
+    function updateSyncStatusBanner(extraMsg) {
+      const el = document.getElementById('syncStatus');
+      if (!el) return;
+      const isOnline = navigator.onLine;
+      const hasPending = localStorage.getItem(LS_PENDING_CARDS_SYNC) === '1' || localStorage.getItem(LS_PENDING_DIALOGUES_SYNC) === '1';
+
+      if (!isOnline) {
+        el.innerHTML = `📴 <strong>Chế độ Offline</strong> — Đang dùng dữ liệu lưu trên máy (${cards.length} thẻ)${hasPending ? ' • Có thay đổi chờ đồng bộ' : ''}`;
+        el.style.color = '#facc15';
+      } else if (extraMsg) {
+        el.textContent = extraMsg;
+        el.style.color = '#86efac';
+      } else {
+        el.textContent = `🟢 Đã đồng bộ Cloud & Lưu Offline (${cards.length} thẻ • nhánh: ${detectedCardNode})`;
+        el.style.color = '#86efac';
+      }
+    }
+
+    loadFromLocalCache();
+
+    // ================= 2. KẾT NỐI FIREBASE & ĐỒNG BỘ 2 CHIỀU =================
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfIpqmiOwghVsSrNd_TSpS57Cz1O3qKyo",
+      authDomain: "my-taiwanese-project.firebaseapp.com",
+      databaseURL: "https://my-taiwanese-project-default-rtdb.firebaseio.com",
+      projectId: "my-taiwanese-project",
+      storageBucket: "my-taiwanese-project.firebasestorage.app",
+      messagingSenderId: "1000055620120",
+      appId: "1:1000055620120:web:1fa8c1f96f77c2314c796d",
+      measurementId: "G-JJ6BKYJMBY"
+    };
+
+    let db = null;
+    let rootRef = null;
+    let dialoguesRef = null;
+
+    try {
+      if (typeof firebase !== 'undefined') {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        rootRef = db.ref('/');
+        dialoguesRef = db.ref('taiwanese_dialogues');
+      }
+    } catch (err) {
+      console.warn('Khởi tạo Firebase ở chế độ Offline:', err);
+    }
+
     function normalizeLoadedCard(rawItem, fallbackKey) {
       if (!rawItem || typeof rawItem !== 'object') return null;
       const zh = rawItem.traditional || rawItem.hanzi || rawItem.chinese || rawItem.word || rawItem.zh || rawItem.front;
@@ -393,59 +466,108 @@
       };
     }
 
-    // Quét toàn bộ nhánh gốc trên Firebase để tự động nhận diện kho từ vựng cũ
-    rootRef.on('value', (snapshot) => {
-      const rootData = snapshot.val();
-      let foundCards = [];
+    function flushPendingOfflineChanges() {
+      if (!db || !navigator.onLine) return;
 
-      if (rootData && typeof rootData === 'object') {
-        Object.keys(rootData).forEach((key) => {
-          if (key === 'taiwanese_dialogues') return; // Bỏ qua nhánh hội thoại
+      // Đồng bộ thẻ từ vựng thay đổi lúc offline
+      if (localStorage.getItem(LS_PENDING_CARDS_SYNC) === '1') {
+        const deletedIds = JSON.parse(localStorage.getItem(LS_DELETED_CARD_IDS) || '[]');
+        deletedIds.forEach(delId => {
+          const delRef = (detectedCardNode === '/') ? db.ref('/' + delId) : db.ref(detectedCardNode + '/' + delId);
+          delRef.remove();
+        });
 
-          const branch = rootData[key];
-          if (branch && typeof branch === 'object') {
-            // Kiểm tra xem bản thân `branch` có phải là 1 thẻ nằm thẳng ở root không
-            const directCard = normalizeLoadedCard(branch, key);
-            if (directCard && (branch.pinyin || branch.traditional || branch.hanzi || branch.word)) {
-              foundCards.push(directCard);
-              detectedCardNode = '/';
-            } else {
-              // Duyệt các phần tử con bên trong nhánh (ví dụ: cards, anki_cards, chinese_cards...)
-              const subItems = Object.entries(branch)
-                .map(([subKey, val]) => normalizeLoadedCard(val, subKey))
-                .filter(Boolean);
-
-              if (subItems.length > 0) {
-                foundCards = foundCards.concat(subItems);
-                detectedCardNode = key;
-              }
-            }
-          }
+        const cardsObj = {};
+        cards.forEach(card => cardsObj[card.id] = card);
+        const targetRef = (detectedCardNode === '/') ? db.ref('/') : db.ref(detectedCardNode);
+        targetRef.update(cardsObj).then(() => {
+          localStorage.removeItem(LS_PENDING_CARDS_SYNC);
+          localStorage.removeItem(LS_DELETED_CARD_IDS);
+          updateSyncStatusBanner(`🟢 Đã đồng bộ dữ liệu Offline lên Cloud (${cards.length} thẻ)`);
         });
       }
 
-      cards = foundCards;
-      document.getElementById('syncStatus').textContent = `🟢 Đã đồng bộ Cloud (${cards.length} thẻ • nhánh: ${detectedCardNode})`;
-      renderStudyCard();
-      renderWordList();
-    }, (err) => {
-      document.getElementById('syncStatus').textContent = '🔴 Lỗi quyền đọc Firebase: ' + err.message;
+      // Đồng bộ hội thoại thay đổi lúc offline
+      if (localStorage.getItem(LS_PENDING_DIALOGUES_SYNC) === '1') {
+        const obj = {};
+        dialogues.forEach(d => obj[d.id] = d);
+        dialoguesRef.set(obj).then(() => {
+          localStorage.removeItem(LS_PENDING_DIALOGUES_SYNC);
+        });
+      }
+    }
+
+    window.addEventListener('online', () => {
+      flushPendingOfflineChanges();
+      updateSyncStatusBanner();
+    });
+    window.addEventListener('offline', () => {
+      updateSyncStatusBanner();
     });
 
-    dialoguesRef.on('value', (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        dialogues = Object.values(data);
-        if (!dialogues.find(d => d.id == selectedDialogueId) && dialogues.length > 0) {
-          selectedDialogueId = dialogues[0].id;
+    if (rootRef) {
+      rootRef.on('value', (snapshot) => {
+        // Nếu đang có thay đổi offline chưa đẩy lên thì đẩy lên trước, không để cloud đè mất tiến độ offline
+        if (localStorage.getItem(LS_PENDING_CARDS_SYNC) === '1') {
+          flushPendingOfflineChanges();
+          return;
         }
-      } else {
-        dialogues = [defaultDialogue];
-        selectedDialogueId = defaultDialogue.id;
-      }
-      renderDialogueSelector();
-      renderDialogueView();
-    });
+
+        const rootData = snapshot.val();
+        let foundCards = [];
+
+        if (rootData && typeof rootData === 'object') {
+          Object.keys(rootData).forEach((key) => {
+            if (key === 'taiwanese_dialogues') return;
+
+            const branch = rootData[key];
+            if (branch && typeof branch === 'object') {
+              const directCard = normalizeLoadedCard(branch, key);
+              if (directCard && (branch.pinyin || branch.traditional || branch.hanzi || branch.word)) {
+                foundCards.push(directCard);
+                detectedCardNode = '/';
+              } else {
+                const subItems = Object.entries(branch)
+                  .map(([subKey, val]) => normalizeLoadedCard(val, subKey))
+                  .filter(Boolean);
+
+                if (subItems.length > 0) {
+                  foundCards = foundCards.concat(subItems);
+                  detectedCardNode = key;
+                }
+              }
+            }
+          });
+        }
+
+        cards = foundCards;
+        saveToLocalCache();
+        updateSyncStatusBanner();
+        renderStudyCard();
+        renderWordList();
+      }, (err) => {
+        updateSyncStatusBanner(`📴 Đang dùng bản lưu Offline (${cards.length} thẻ)`);
+      });
+    }
+
+    if (dialoguesRef) {
+      dialoguesRef.on('value', (snapshot) => {
+        if (localStorage.getItem(LS_PENDING_DIALOGUES_SYNC) === '1') {
+          flushPendingOfflineChanges();
+          return;
+        }
+        const data = snapshot.val();
+        if (data) {
+          dialogues = Object.values(data);
+          if (!dialogues.find(d => d.id == selectedDialogueId) && dialogues.length > 0) {
+            selectedDialogueId = dialogues[0].id;
+          }
+          saveToLocalCache();
+        }
+        renderDialogueSelector();
+        renderDialogueView();
+      });
+    }
 
     function createCard(traditional, pinyin, vietnamese, example) {
       return {
@@ -459,23 +581,57 @@
     }
 
     function saveCardsToCloud() {
-      document.getElementById('syncStatus').textContent = '⏳ Đang lưu lên Cloud...';
+      saveToLocalCache(); // Luôn lưu ngay vào máy trước
+      if (!db || !navigator.onLine) {
+        localStorage.setItem(LS_PENDING_CARDS_SYNC, '1');
+        updateSyncStatusBanner();
+        return;
+      }
+
+      updateSyncStatusBanner('⏳ Đang lưu lên Cloud & máy...');
       const cardsObj = {};
       cards.forEach(card => cardsObj[card.id] = card);
       const targetRef = (detectedCardNode === '/') ? db.ref('/') : db.ref(detectedCardNode);
-      targetRef.update(cardsObj);
+      targetRef.update(cardsObj)
+        .then(() => updateSyncStatusBanner())
+        .catch(() => {
+          localStorage.setItem(LS_PENDING_CARDS_SYNC, '1');
+          updateSyncStatusBanner();
+        });
     }
 
     function deleteCardFromCloud(cardId) {
+      saveToLocalCache();
+      if (!db || !navigator.onLine) {
+        localStorage.setItem(LS_PENDING_CARDS_SYNC, '1');
+        const deletedIds = JSON.parse(localStorage.getItem(LS_DELETED_CARD_IDS) || '[]');
+        deletedIds.push(cardId);
+        localStorage.setItem(LS_DELETED_CARD_IDS, JSON.stringify(deletedIds));
+        updateSyncStatusBanner();
+        return;
+      }
+
       const targetRef = (detectedCardNode === '/') ? db.ref('/' + cardId) : db.ref(detectedCardNode + '/' + cardId);
       targetRef.remove();
     }
 
     function saveDialoguesToCloud() {
-      document.getElementById('syncStatus').textContent = '⏳ Đang lưu hội thoại lên Cloud...';
+      saveToLocalCache();
+      if (!db || !navigator.onLine) {
+        localStorage.setItem(LS_PENDING_DIALOGUES_SYNC, '1');
+        updateSyncStatusBanner();
+        return;
+      }
+
+      updateSyncStatusBanner('⏳ Đang lưu hội thoại lên Cloud...');
       const obj = {};
       dialogues.forEach(d => obj[d.id] = d);
-      dialoguesRef.set(obj);
+      dialoguesRef.set(obj)
+        .then(() => updateSyncStatusBanner())
+        .catch(() => {
+          localStorage.setItem(LS_PENDING_DIALOGUES_SYNC, '1');
+          updateSyncStatusBanner();
+        });
     }
 
     function getDueCards() {
@@ -507,11 +663,20 @@
       }
     }
 
+    // Lọc lấy riêng phần chữ Hán Phồn thể (loại bỏ Pinyin Latin cũ nếu có)
+    function extractHanziOnly(text) {
+      if (!text) return '';
+      return String(text).replace(/[a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü()（）]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
     function speakTaiwanese(text, e, onEndCallback) {
       if (e) e.stopPropagation();
       if (!text || !('speechSynthesis' in window)) return;
+
+      const hanziClean = extractHanziOnly(text) || String(text).trim();
+
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new SpeechSynthesisUtterance(hanziClean);
       utterance.lang = 'zh-TW';
       utterance.rate = 0.92;
 
@@ -531,6 +696,7 @@
         .replace(/'/g, "&#039;");
     }
 
+    // ================= 3. CHẤM ĐIỂM THEO Ý CHÍNH & TỪ KHÓA CỐT LÕI =================
     const ZH_STOP_WORDS = new Set([
       '的', '了', '啊', '吧', '嗎', '呢', '喔', '呀', '哦', '啦', '嘛',
       '就', '也', '還', '都', '很', '太', '真', '好', '在', '是', '有',
@@ -616,6 +782,7 @@
       `;
     }
 
+    // ================= 4. TAB 1: ÔN TẬP THẺ =================
     function setStudyMode(mode) {
       studyMode = mode;
       document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
@@ -694,7 +861,7 @@
       const zhText = currentCard.traditional || currentCard.word || '';
       const pyText = currentCard.pinyin || '';
       const viText = currentCard.vietnamese || currentCard.meaning || '';
-      const exZh = currentCard.example || '';
+      const exHanziOnly = extractHanziOnly(currentCard.example || '');
 
       if (currentCardId !== currentCard.id) {
         currentCardId = currentCard.id;
@@ -716,7 +883,7 @@
         frontHtml = `
           <span class="mode-badge badge-audio">🎧 Nghe phản xạ (Giọng Đài Loan)</span>
           <div class="front-prompt-audio">
-            <button class="big-audio-btn" onclick="speakTaiwanese('${zhText.replace(/'/g, "\\'")}', event)">🔊</button>
+            <button class="big-audio-btn" data-speak="${escapeHtml(zhText)}" onclick="speakTaiwanese(this.dataset.speak, event)">🔊</button>
           </div>
         `;
         placeholderText = 'Gõ lại Chữ Phồn thể hoặc Nghĩa...';
@@ -773,7 +940,7 @@
               <div class="field-label">Chữ Phồn thể (Đáp án mẫu):</div>
               <div class="val-zh">
                 <span>${escapeHtml(zhText)}</span>
-                <button class="icon-audio" onclick="speakTaiwanese('${zhText.replace(/'/g, "\\'")}', event)">🔊</button>
+                <button class="icon-audio" data-speak="${escapeHtml(zhText)}" onclick="speakTaiwanese(this.dataset.speak, event)">🔊</button>
               </div>
 
               <div class="field-label">Pinyin:</div>
@@ -782,13 +949,13 @@
               <div class="field-label">Nghĩa tiếng Việt:</div>
               <div class="val-vi">(${escapeHtml(viText)})</div>
 
-              ${exZh ? `
+              ${exHanziOnly ? `
                 <div class="context-box">
                   <div class="context-header">
                     <span>❞ Ví dụ ngữ cảnh:</span>
-                    <button class="icon-audio" onclick="speakTaiwanese('${exZh.replace(/'/g, "\\'")}', event)">🔊</button>
+                    <button class="icon-audio" data-speak="${escapeHtml(exHanziOnly)}" onclick="speakTaiwanese(this.dataset.speak, event)">🔊</button>
                   </div>
-                  <div class="context-zh">${escapeHtml(exZh)}</div>
+                  <div class="context-zh">${escapeHtml(exHanziOnly)}</div>
                 </div>
               ` : ''}
             </div>
@@ -811,6 +978,7 @@
       }
     }
 
+    // ================= 5. TAB 2: LUYỆN HỘI THOẠI =================
     function renderDialogueSelector() {
       const select = document.getElementById('dialogueSelect');
       if (!select) return;
@@ -942,7 +1110,7 @@
                 ${turnCompareHtml}
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                   <div class="b-zh">${escapeHtml(turn.zh)}</div>
-                  <button class="icon-audio" onclick="speakTaiwanese('${turn.zh.replace(/'/g, "\\'")}', event)" title="Nghe câu này">🔊</button>
+                  <button class="icon-audio" data-speak="${escapeHtml(turn.zh)}" onclick="speakTaiwanese(this.dataset.speak, event)" title="Nghe câu này">🔊</button>
                 </div>
                 ${turn.pinyin ? `<div class="b-py">${escapeHtml(turn.pinyin)}</div>` : ''}
                 ${turn.vi ? `<div class="b-vi">(${escapeHtml(turn.vi)})</div>` : ''}
@@ -1031,6 +1199,7 @@
       alert('Đã lưu đoạn hội thoại thành công!');
     }
 
+    // ================= 6. TAB 3: QUẢN LÝ TỪ VỰNG =================
     function renderWordList() {
       const container = document.getElementById('wordListContainer');
       document.getElementById('totalWordCount').textContent = cards.length;
@@ -1103,6 +1272,8 @@
       if (confirm('Bạn có chắc chắn muốn xóa từ này?')) {
         cards = cards.filter(c => c.id != id);
         deleteCardFromCloud(id);
+        renderWordList();
+        renderStudyCard();
       }
     }
 
@@ -1114,7 +1285,7 @@
       document.getElementById('example').value = '';
 
       document.getElementById('formTitle').textContent = 'Thêm từ vựng mới';
-      document.getElementById('submitBtn').textContent = 'Lưu vào bộ thẻ (Tự đồng bộ)';
+      document.getElementById('submitBtn').textContent = 'Lưu vào bộ thẻ (Offline & Cloud)';
       document.getElementById('cancelEditBtn').style.display = 'none';
     }
   </script>
