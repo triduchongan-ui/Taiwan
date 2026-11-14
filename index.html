@@ -94,11 +94,18 @@
     .flip-hint { font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 6px; display: inline-block; }
     .flip-hint:hover { color: white; }
 
-    .check-result {
-      padding: 10px 14px; border-radius: 10px; margin: 14px 0; font-size: 14px; font-weight: 600; text-align: left;
+    /* Hộp so sánh thông minh */
+    .compare-box {
+      padding: 12px 14px; border-radius: 10px; margin: 14px 0; font-size: 14px; text-align: left; line-height: 1.6;
     }
-    .check-correct { background: rgba(34, 197, 94, 0.15); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); }
-    .check-wrong { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .compare-pass { background: rgba(34, 197, 94, 0.14); border: 1px solid rgba(34, 197, 94, 0.45); color: #dcfce7; }
+    .compare-partial { background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(245, 158, 11, 0.45); color: #fef3c7; }
+    .compare-fail { background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.45); color: #fee2e2; }
+    .compare-title { font-weight: bold; font-size: 14px; margin-bottom: 6px; display: flex; justify-content: space-between; }
+    .compare-line { font-size: 13px; margin-top: 4px; color: #cbd5e1; }
+    .tok-hit { color: #4ade80; font-weight: bold; background: rgba(34, 197, 94, 0.18); padding: 1px 3px; border-radius: 4px; }
+    .tok-miss { color: #facc15; border-bottom: 1px dashed #facc15; padding: 0 2px; }
+    .tok-stop { color: #94a3b8; }
 
     /* Mặt sau đáp án chi tiết */
     .back-details { text-align: left; border-top: 1px solid var(--border); padding-top: 18px; margin-top: 16px; }
@@ -107,7 +114,7 @@
     .val-pinyin { font-size: 18px; font-weight: bold; color: var(--pinyin); margin-bottom: 14px; }
     .val-vi { font-size: 18px; font-weight: bold; color: var(--vietnamese); margin-bottom: 16px; }
 
-    /* Khung Ví dụ ngữ cảnh giữ nguyên cấu trúc chỉ hiện Chữ Phồn thể */
+    /* Khung Ví dụ ngữ cảnh */
     .context-box {
       background: var(--sub-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
     }
@@ -181,7 +188,7 @@
     }
     .chat-title { font-weight: bold; font-size: 16px; color: #a5b4fc; }
 
-    .bubble-row { display: flex; flex-direction: column; max-width: 90%; }
+    .bubble-row { display: flex; flex-direction: column; max-width: 92%; }
     .bubble-prof { align-self: flex-start; }
     .bubble-you { align-self: flex-end; }
 
@@ -206,9 +213,10 @@
       background: rgba(15, 23, 42, 0.7); border: 1px dashed #6366f1; border-radius: 10px;
       padding: 10px; margin-top: 8px;
     }
+    .roleplay-input-row { display: flex; gap: 6px; margin-top: 6px; }
     .roleplay-input {
-      width: 100%; padding: 9px 11px; font-size: 14px; background: var(--bg);
-      color: white; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; margin-top: 6px;
+      flex: 1; padding: 9px 11px; font-size: 14px; background: var(--bg);
+      color: white; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;
     }
     .btn-reveal-turn {
       margin-top: 8px; padding: 6px 12px; font-size: 12px; background: var(--primary);
@@ -309,19 +317,22 @@
   </div>
 
   <script>
+    // Cấu hình Firebase chuẩn của bạn
     const firebaseConfig = {
-      apiKey: "AIzaSyD2qytj3TPX4n5TXnGr-JJor9pqO_up4N4",
+      apiKey: "AIzaSyBfIpqmiOwghVsSrNd_TSpS57Cz1O3qKyo",
       authDomain: "my-taiwanese-project.firebaseapp.com",
       databaseURL: "https://my-taiwanese-project-default-rtdb.firebaseio.com",
       projectId: "my-taiwanese-project",
       storageBucket: "my-taiwanese-project.firebasestorage.app",
-      messagingSenderId: "775151282069",
-      appId: "1:775151282069:web:0eef220ca1916ec868f89c"
+      messagingSenderId: "1000055620120",
+      appId: "1:1000055620120:web:1fa8c1f96f77c2314c796d",
+      measurementId: "G-JJ6BKYJMBY"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    const cardsRef = db.ref('taiwanese_cards');
+    // Trỏ đúng về nhánh anki_cards chứa toàn bộ dữ liệu từ vựng đã lưu trước đó của bạn
+    const cardsRef = db.ref('anki_cards');
     const dialoguesRef = db.ref('taiwanese_dialogues');
 
     let cards = [];
@@ -372,7 +383,8 @@
     let dialogues = [defaultDialogue];
     let selectedDialogueId = defaultDialogue.id;
     let isRoleplayMode = false;
-    let revealedTurns = {}; // Chỉ mở từng lượt khi người dùng bấm hiện đáp án hoặc gõ đúng
+    let revealedTurns = {};
+    let turnTypedAnswers = {};
 
     cardsRef.on('value', (snapshot) => {
       const data = snapshot.val();
@@ -466,6 +478,101 @@
       window.speechSynthesis.speak(utterance);
     }
 
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // ================= BỘ CHẤM ĐIỂM THÔNG MINH THEO Ý CHÍNH & TỪ VỰNG CỐT LÕI =================
+    const ZH_STOP_WORDS = new Set([
+      '的', '了', '啊', '吧', '嗎', '呢', '喔', '呀', '哦', '啦', '嘛',
+      '就', '也', '還', '都', '很', '太', '真', '好', '在', '是', '有',
+      '我', '你', '您', '他', '她', '們', '這', '那', '個', '些', '把', '被',
+      '一', '下', '過', '著', '起', '來', '去', '到', '給', '跟', '和', '與',
+      '老', '師', '教', '授', '請', '問', '謝'
+    ]);
+
+    function evaluateFlexibleChinese(userInput, targetSample) {
+      const cleanUser = String(userInput || '').replace(/[，。！？、,.!?；;：:"'“”‘’\s]/g, '').trim();
+      const cleanTarget = String(targetSample || '').replace(/[，。！？、,.!?；;：:"'“”‘’\s]/g, '').trim();
+
+      if (!cleanUser) return null;
+
+      const targetChars = Array.from(cleanTarget);
+      const userCharSet = new Set(Array.from(cleanUser));
+
+      let coreTotal = 0;
+      let coreMatched = 0;
+      let highlightedSampleHtml = '';
+
+      targetChars.forEach(ch => {
+        const isStop = ZH_STOP_WORDS.has(ch);
+        if (isStop) {
+          highlightedSampleHtml += userCharSet.has(ch)
+            ? `<span class="tok-hit">${escapeHtml(ch)}</span>`
+            : `<span class="tok-stop">${escapeHtml(ch)}</span>`;
+        } else {
+          coreTotal++;
+          if (userCharSet.has(ch)) {
+            coreMatched++;
+            highlightedSampleHtml += `<span class="tok-hit">${escapeHtml(ch)}</span>`;
+          } else {
+            highlightedSampleHtml += `<span class="tok-miss">${escapeHtml(ch)}</span>`;
+          }
+        }
+      });
+
+      if (coreTotal === 0) {
+        coreTotal = targetChars.length;
+        coreMatched = targetChars.filter(ch => userCharSet.has(ch)).length;
+      }
+
+      const ratio = coreTotal > 0 ? (coreMatched / coreTotal) : 0;
+      const percent = Math.round(ratio * 100);
+
+      let status = 'fail';
+      if (cleanUser === cleanTarget || percent >= 60) {
+        status = 'pass';
+      } else if (percent >= 30) {
+        status = 'partial';
+      }
+
+      return {
+        status,
+        percent,
+        userRaw: userInput,
+        highlightedSampleHtml
+      };
+    }
+
+    function renderComparisonHtml(evalRes) {
+      if (!evalRes) return '';
+      let boxClass = 'compare-fail';
+      let titleText = `❌ Chưa sát ý chính (${evalRes.percent}% từ khóa)`;
+      if (evalRes.status === 'pass') {
+        boxClass = 'compare-pass';
+        titleText = `✅ Đạt ý & Đúng từ vựng chuẩn! (${evalRes.percent}% từ khóa cốt lõi)`;
+      } else if (evalRes.status === 'partial') {
+        boxClass = 'compare-partial';
+        titleText = `⚠️ Đúng một phần ý (${evalRes.percent}% từ khóa cốt lõi)`;
+      }
+
+      return `
+        <div class="compare-box ${boxClass}">
+          <div class="compare-title"><span>${titleText}</span></div>
+          <div class="compare-line"><strong>Bạn gõ:</strong> ${escapeHtml(evalRes.userRaw)}</div>
+          <div class="compare-line"><strong>Đáp án mẫu:</strong> ${evalRes.highlightedSampleHtml}</div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 5px;">
+            *Chú thích: <span class="tok-hit">Xanh</span> = từ khóa đã dùng đúng | <span class="tok-miss">Vàng gạch chân</span> = từ khóa mẫu gợi ý thêm | Xám = từ đệm có thể lược bớt.
+          </div>
+        </div>
+      `;
+    }
+
     // ================= LOGIC TAB 1: ÔN TẬP THẺ =================
     function setStudyMode(mode) {
       studyMode = mode;
@@ -513,13 +620,6 @@
       renderStudyCard();
     }
 
-    function normalizeText(str) {
-      return String(str || '')
-        .toLowerCase()
-        .replace(/[，。！？、,.!?；;：:"'“”‘’\s]/g, '')
-        .trim();
-    }
-
     function checkTypedAnswer() {
       const inputEl = document.getElementById('userAnswerInput');
       if (inputEl) userTypedAnswer = inputEl.value.trim();
@@ -529,15 +629,6 @@
         const targetZh = currentCard.traditional || currentCard.word || '';
         speakTaiwanese(targetZh);
       }
-    }
-
-    function escapeHtml(str) {
-      return String(str || '')
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
     }
 
     function renderStudyCard() {
@@ -571,28 +662,14 @@
         }
       }
 
-      const normInput = normalizeText(userTypedAnswer);
-      const normZh = normalizeText(zhText);
-      const normPy = normalizeText(pyText);
-      const normVi = normalizeText(viText);
-
-      let isMatch = false;
-      if (normInput.length > 0) {
-        if (activePromptType === 'vi2zh') {
-          isMatch = (normInput === normZh);
-        } else {
-          isMatch = (normInput === normZh || normInput === normPy || normInput === normVi);
-        }
-      }
-
       let frontHtml = '';
       let placeholderText = '';
       if (activePromptType === 'vi2zh') {
         frontHtml = `
-          <span class="mode-badge badge-vi">🇻🇳 Phản xạ: Gõ chữ Phồn thể</span>
+          <span class="mode-badge badge-vi">🇻🇳 Phản xạ: Diễn đạt lại bằng chữ Phồn thể</span>
           <div class="front-prompt-vi">${escapeHtml(viText)}</div>
         `;
-        placeholderText = 'Gõ lại bằng Chữ Phồn thể...';
+        placeholderText = 'Gõ ý chính bằng Chữ Phồn thể (có thể lược bớt từ đệm)...';
       } else if (activePromptType === 'audio') {
         frontHtml = `
           <span class="mode-badge badge-audio">🎧 Nghe phản xạ (Giọng Đài Loan)</span>
@@ -600,13 +677,32 @@
             <button class="big-audio-btn" onclick="speakTaiwanese('${zhText.replace(/'/g, "\\'")}', event)">🔊</button>
           </div>
         `;
-        placeholderText = 'Nghe được gì? Gõ Phồn thể hoặc Nghĩa...';
+        placeholderText = 'Gõ lại Chữ Phồn thể hoặc Nghĩa...';
       } else {
         frontHtml = `
           <span class="mode-badge badge-zh">🇹🇼 Đọc hiểu: Chữ Phồn thể</span>
           <div class="front-prompt-zh">${escapeHtml(zhText)}</div>
         `;
         placeholderText = 'Gõ Chữ Phồn thể, Pinyin hoặc Nghĩa...';
+      }
+
+      let comparisonHtml = '';
+      if (isAnswerShown && userTypedAnswer) {
+        const hasChineseChars = /[\u4e00-\u9fff]/.test(userTypedAnswer);
+        if (hasChineseChars) {
+          const evalRes = evaluateFlexibleChinese(userTypedAnswer, zhText);
+          comparisonHtml = renderComparisonHtml(evalRes);
+        } else {
+          const cleanU = userTypedAnswer.toLowerCase().trim();
+          const isMatch = pyText.toLowerCase().includes(cleanU) || viText.toLowerCase().includes(cleanU);
+          comparisonHtml = `
+            <div class="compare-box ${isMatch ? 'compare-pass' : 'compare-partial'}">
+              <div class="compare-title">${isMatch ? '✅ Khớp nghĩa / Pinyin!' : 'ℹ️ Đối chiếu câu trả lời của bạn:'}</div>
+              <div class="compare-line"><strong>Bạn gõ:</strong> ${escapeHtml(userTypedAnswer)}</div>
+              <div class="compare-line"><strong>Mẫu:</strong> ${escapeHtml(zhText)} (${escapeHtml(pyText)})</div>
+            </div>
+          `;
+        }
       }
 
       container.innerHTML = `
@@ -629,17 +725,10 @@
           ${!isAnswerShown ? `
             <div class="flip-hint" onclick="checkTypedAnswer()">↻ Bấm vào thẻ để lật xem đáp án</div>
           ` : `
-            ${userTypedAnswer ? `
-              <div class="check-result ${isMatch ? 'check-correct' : 'check-wrong'}">
-                ${isMatch 
-                  ? `✅ Chính xác! (${escapeHtml(userTypedAnswer)})` 
-                  : `❌ Chưa khớp! Bạn gõ: "${escapeHtml(userTypedAnswer)}"`
-                }
-              </div>
-            ` : ''}
+            ${comparisonHtml}
 
             <div class="back-details">
-              <div class="field-label">Chữ Phồn thể:</div>
+              <div class="field-label">Chữ Phồn thể (Đáp án mẫu):</div>
               <div class="val-zh">
                 <span>${escapeHtml(zhText)}</span>
                 <button class="icon-audio" onclick="speakTaiwanese('${zhText.replace(/'/g, "\\'")}', event)">🔊</button>
@@ -692,19 +781,28 @@
     function selectDialogue(id) {
       selectedDialogueId = Number(id);
       revealedTurns = {};
+      turnTypedAnswers = {};
       renderDialogueView();
     }
 
     function toggleRoleplayMode() {
       isRoleplayMode = !isRoleplayMode;
       revealedTurns = {};
+      turnTypedAnswers = {};
       const btn = document.getElementById('roleplayToggleBtn');
       btn.classList.toggle('active', isRoleplayMode);
       btn.textContent = isRoleplayMode ? '🎭 Đóng vai: ĐANG BẬT' : '🎭 Đóng vai: TẮT';
       renderDialogueView();
     }
 
-    // Chỉ mở đúng đáp án của mục ẩn `idx`, sau đó đọc câu đó (và đọc tiếp câu Giáo sư kế bên nếu có)
+    function submitTurnAnswer(idx) {
+      const inputEl = document.getElementById(`turn-input-${idx}`);
+      if (inputEl) {
+        turnTypedAnswers[idx] = inputEl.value.trim();
+      }
+      revealTurn(idx);
+    }
+
     function revealTurn(idx) {
       revealedTurns[idx] = true;
       renderDialogueView();
@@ -716,21 +814,10 @@
       const nextTurn = dialog.turns[idx + 1];
 
       speakTaiwanese(currentTurn.zh, null, () => {
-        // Nếu lượt kế tiếp là của Giáo sư, tự động đọc câu hỏi tiếp theo của Giáo sư sau 0.6s
         if (nextTurn && !(nextTurn.speaker.toLowerCase().includes('bạn') || nextTurn.speaker.toLowerCase().includes('em'))) {
           setTimeout(() => speakTaiwanese(nextTurn.zh), 600);
         }
       });
-    }
-
-    function checkTurnInput(idx, inputVal) {
-      const dialog = dialogues.find(d => d.id == selectedDialogueId);
-      if (!dialog || !dialog.turns[idx]) return;
-      const target = normalizeText(dialog.turns[idx].zh);
-      const typed = normalizeText(inputVal);
-      if (typed === target && typed.length > 0) {
-        revealTurn(idx);
-      }
     }
 
     function playFullDialogue() {
@@ -765,8 +852,6 @@
       const dialog = dialogues.find(d => d.id == selectedDialogueId) || dialogues[0];
       if (!dialog) return;
 
-      // Xác định điểm dừng hiển thị khi bật chế độ Đóng vai:
-      // Chỉ hiển thị đến đúng lượt ẩn đầu tiên của Bạn (không bung toàn bộ đoạn hội thoại phía sau)
       let visibleLimit = dialog.turns.length - 1;
       if (isRoleplayMode) {
         for (let i = 0; i < dialog.turns.length; i++) {
@@ -784,27 +869,36 @@
         const isYou = turn.speaker.toLowerCase().includes('bạn') || turn.speaker.toLowerCase().includes('em');
         const shouldHide = isRoleplayMode && isYou && !revealedTurns[idx];
 
+        let turnCompareHtml = '';
+        if (isYou && revealedTurns[idx] && turnTypedAnswers[idx]) {
+          const evalRes = evaluateFlexibleChinese(turnTypedAnswers[idx], turn.zh);
+          turnCompareHtml = renderComparisonHtml(evalRes);
+        }
+
         return `
           <div class="bubble-row ${isYou ? 'bubble-you' : 'bubble-prof'}">
             <div class="speaker-tag">${isYou ? '🧑‍💻 Bạn (Sinh viên)' : '👨‍🏫 Giáo sư Đài Loan'}</div>
             <div class="bubble">
               ${shouldHide ? `
                 <div class="b-vi" style="color: #86efac; font-style: normal; font-weight: bold;">
-                  🇻🇳 Gợi ý phản xạ: "${escapeHtml(turn.vi)}"
+                  🇻🇳 Gợi ý dàn ý: "${escapeHtml(turn.vi)}"
                 </div>
                 <div class="roleplay-mask">
-                  <div style="font-size: 12px; color: var(--muted);">Tự bật ra tiếng Trung hoặc gõ thử bên dưới:</div>
-                  <input 
-                    type="text" 
-                    id="turn-input-${idx}"
-                    class="roleplay-input" 
-                    placeholder="Gõ câu trả lời Phồn thể..." 
-                    oninput="checkTurnInput(${idx}, this.value)"
-                    onkeydown="if(event.key==='Enter'){ revealTurn(${idx}); }"
-                  >
-                  <button class="btn-reveal-turn" onclick="revealTurn(${idx})">👁️ Hiện đáp án & Nghe</button>
+                  <div style="font-size: 12px; color: var(--muted);">Gõ ý chính bằng Chữ Phồn thể (không cần đúng 100% từng chữ):</div>
+                  <div class="roleplay-input-row">
+                    <input 
+                      type="text" 
+                      id="turn-input-${idx}"
+                      class="roleplay-input" 
+                      placeholder="vd: 老師，執行程式一直報錯..." 
+                      onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitTurnAnswer(${idx}); }"
+                    >
+                    <button class="btn-check" style="padding: 8px 14px; font-size: 13px;" onclick="submitTurnAnswer(${idx})">Kiểm tra</button>
+                  </div>
+                  <button class="btn-reveal-turn" onclick="revealTurn(${idx})">👁️ Bỏ qua & Hiện đáp án</button>
                 </div>
               ` : `
+                ${turnCompareHtml}
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                   <div class="b-zh">${escapeHtml(turn.zh)}</div>
                   <button class="icon-audio" onclick="speakTaiwanese('${turn.zh.replace(/'/g, "\\'")}', event)" title="Nghe câu này">🔊</button>
@@ -821,7 +915,7 @@
       const footerHtml = isRoleplayMode ? (
         remainingCount > 0
           ? `<div class="progress-hint">⏳ Hoàn thành lượt trên để mở tiếp ${remainingCount} lượt hội thoại phía sau...</div>`
-          : `<div class="progress-hint" style="color:#86efac;">🎉 Đã hoàn thành toàn bộ đoạn hội thoại! <button class="btn-reveal-turn" style="margin-left:8px;" onclick="revealedTurns={}; renderDialogueView();">🔄 Luyện lại từ đầu</button></div>`
+          : `<div class="progress-hint" style="color:#86efac;">🎉 Đã hoàn thành toàn bộ đoạn hội thoại! <button class="btn-reveal-turn" style="margin-left:8px;" onclick="revealedTurns={}; turnTypedAnswers={}; renderDialogueView();">🔄 Luyện lại từ đầu</button></div>`
       ) : '';
 
       container.innerHTML = `
@@ -835,7 +929,6 @@
         </div>
       `;
 
-      // Tự động focus vào ô nhập của lượt đang ẩn hiện tại
       if (isRoleplayMode) {
         const activeInput = document.getElementById(`turn-input-${visibleLimit}`);
         if (activeInput) activeInput.focus();
@@ -889,6 +982,7 @@
       dialogues.push(newDialog);
       selectedDialogueId = newDialog.id;
       revealedTurns = {};
+      turnTypedAnswers = {};
       saveDialoguesToCloud();
 
       document.getElementById('dialogTitle').value = '';
