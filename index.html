@@ -3,782 +3,670 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anki Spaced Repetition - Tiếng Trung Phồn Thể</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Firebase App & Realtime Database CDN -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <title>Anki Taiwanese Chinese - Phản Xạ Phòng Lab</title>
   <style>
-    .perspective { perspective: 1000px; }
-    .transform-style-3d { transform-style: preserve-3d; }
-    .backface-hidden { backface-visibility: hidden; }
-    .rotate-y-180 { transform: rotateY(180deg); }
+    :root {
+      --bg: #181c24;
+      --card-bg: #222733;
+      --sub-bg: #1b202b;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --pinyin: #facc15;
+      --vietnamese: #22c55e;
+      --border: #334155;
+      --danger: #ef4444;
+      --warning: #d97706;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      max-width: 650px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .tabs { display: flex; gap: 10px; margin-bottom: 16px; }
+    button.tab-btn {
+      flex: 1; padding: 12px; border: 1px solid var(--border);
+      background: var(--card-bg); color: var(--muted); cursor: pointer;
+      border-radius: 10px; font-weight: bold; font-size: 15px; transition: all 0.2s;
+    }
+    button.tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .sync-status {
+      font-size: 13px; text-align: center; margin-bottom: 12px; font-weight: 600; color: var(--muted);
+    }
+    .stat-box {
+      text-align: center; padding: 10px; background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 8px; margin-bottom: 14px; font-weight: bold; color: #a5b4fc; font-size: 14px;
+    }
+
+    /* Thanh chọn chế độ xuất hiện thẻ */
+    .mode-bar {
+      display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .mode-btn {
+      flex: 1; min-width: 120px; padding: 8px 10px; font-size: 12px; font-weight: bold;
+      border-radius: 8px; border: 1px solid var(--border); background: var(--sub-bg);
+      color: var(--muted); cursor: pointer; transition: all 0.2s;
+    }
+    .mode-btn.active {
+      background: #312e81; color: #e0e7ff; border-color: var(--primary);
+    }
+
+    /* Thẻ Flashcard Dark Mode */
+    .flashcard {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px 22px; text-align: center;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
+      margin-bottom: 18px;
+    }
+    .mode-badge {
+      display: inline-block; font-size: 11px; font-weight: bold; padding: 4px 10px;
+      border-radius: 999px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .badge-zh { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); }
+    .badge-vi { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .badge-audio { background: rgba(250, 204, 21, 0.2); color: #fde047; border: 1px solid rgba(250, 204, 21, 0.4); }
+
+    .front-prompt-zh {
+      font-size: 32px; font-weight: bold; color: #ffffff; margin-bottom: 18px; line-height: 1.4;
+    }
+    .front-prompt-vi {
+      font-size: 22px; font-weight: bold; color: var(--vietnamese); margin-bottom: 18px; line-height: 1.5;
+    }
+    .front-prompt-audio {
+      margin-bottom: 18px;
+    }
+    .big-audio-btn {
+      background: #312e81; border: 2px solid var(--primary); color: white;
+      border-radius: 50%; width: 64px; height: 64px; font-size: 28px; cursor: pointer;
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.4); transition: transform 0.15s;
+    }
+    .big-audio-btn:active { transform: scale(0.95); }
+
+    /* Ô gõ kiểm tra ngang */
+    .input-row {
+      display: flex; gap: 10px; margin-bottom: 12px;
+    }
+    .answer-input {
+      flex: 1; padding: 12px 16px; font-size: 16px; background: var(--sub-bg);
+      color: white; border: 1px solid var(--border); border-radius: 10px; outline: none;
+    }
+    .answer-input:focus { border-color: var(--primary); }
+    .btn-check {
+      padding: 12px 20px; background: var(--primary); color: white; border: none;
+      border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer;
+    }
+    .btn-check:hover { background: var(--primary-hover); }
+
+    .flip-hint {
+      font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 6px; display: inline-block;
+    }
+    .flip-hint:hover { color: white; }
+
+    /* Kết quả so sánh */
+    .check-result {
+      padding: 10px 14px; border-radius: 10px; margin: 14px 0; font-size: 14px; font-weight: 600; text-align: left;
+    }
+    .check-correct { background: rgba(34, 197, 94, 0.15); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .check-wrong { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+
+    /* Mặt sau đáp án chi tiết */
+    .back-details {
+      text-align: left; border-top: 1px solid var(--border); padding-top: 18px; margin-top: 16px;
+    }
+    .field-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .val-zh { font-size: 26px; font-weight: bold; color: #ffffff; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+    .val-pinyin { font-size: 18px; font-weight: bold; color: var(--pinyin); margin-bottom: 14px; }
+    .val-vi { font-size: 18px; font-weight: bold; color: var(--vietnamese); margin-bottom: 16px; }
+
+    .context-box {
+      background: var(--sub-bg); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; position: relative;
+    }
+    .context-header {
+      display: flex; justify-content: space-between; align-items: center;
+      color: #38bdf8; font-size: 13px; font-weight: bold; margin-bottom: 8px;
+    }
+    .context-zh { font-size: 17px; color: #f1f5f9; font-weight: 600; margin-bottom: 4px; }
+    .context-py { font-size: 13px; color: var(--pinyin); margin-bottom: 4px; }
+    .context-vi { font-size: 13px; color: var(--muted); font-style: italic; }
+
+    .icon-audio {
+      background: transparent; border: none; color: #38bdf8; font-size: 20px; cursor: pointer; padding: 4px;
+    }
+
+    /* Nút đánh giá mức độ nhớ */
+    .rating-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .rate-btn { padding: 12px 6px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; font-size: 14px; }
+    .again { background: #ef4444; }
+    .hard { background: #f97316; }
+    .good { background: #3b82f6; }
+    .easy { background: #22c55e; }
+
+    /* Form thêm / quản lý từ */
+    .form-card {
+      background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px;
+    }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #cbd5e1; }
+    input[type="text"], textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--border); background: var(--sub-bg);
+      color: white; border-radius: 8px; box-sizing: border-box; font-size: 14px;
+    }
+    .btn-submit {
+      width: 100%; padding: 12px; background: var(--primary);
+      color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: bold;
+    }
+    .btn-cancel {
+      width: 100%; padding: 10px; background: #475569;
+      color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: 8px;
+    }
+
+    .word-list-section { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .word-list-title { font-size: 17px; font-weight: bold; margin-bottom: 14px; color: #a5b4fc; }
+    .word-item {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .word-info { flex: 1; padding-right: 10px; }
+    .word-zh { font-weight: bold; color: white; font-size: 17px; }
+    .word-py { color: var(--pinyin); font-size: 13px; }
+    .word-vi { color: var(--vietnamese); font-size: 14px; }
+    .word-actions { display: flex; gap: 6px; }
+    .btn-action {
+      padding: 6px 12px; border: none; border-radius: 6px;
+      color: white; font-size: 12px; cursor: pointer; font-weight: bold;
+    }
+    .btn-edit { background: var(--warning); }
+    .btn-delete { background: var(--danger); }
   </style>
+
+  <!-- Firebase App & Realtime Database SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans pb-12">
+<body>
 
-  <!-- Navigation Bar -->
-  <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 shadow-md">
-    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-      <div class="flex items-center gap-2">
-        <i data-lucide="brain-circuit" class="text-indigo-400 w-6 h-6"></i>
-        <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
-          Chinese SRS Flashcard
-        </h1>
-      </div>
-      <div class="flex items-center gap-2">
-        <span id="sync-status" class="text-xs px-2.5 py-1 rounded-full bg-slate-700 text-slate-300 flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-          Đang kết nối...
-        </span>
-        <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-lg flex items-center gap-1 transition">
-          <i data-lucide="plus" class="w-4 h-4"></i> Thêm Thẻ
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Container -->
-  <main class="max-w-4xl mx-auto px-4 py-6 space-y-6">
-
-    <!-- Navigation Tabs -->
-    <div class="flex gap-3 bg-slate-800/80 p-2 rounded-2xl border border-slate-700/80 shadow-inner">
-      <button id="btn-tab-review" onclick="switchTab('review')" class="flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-500">
-        Ôn tập
-      </button>
-      <button id="btn-tab-manage" onclick="switchTab('manage')" class="flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 bg-slate-700/70 text-slate-300 hover:bg-slate-700 hover:text-white">
-        Thêm / Quản lý từ
-      </button>
-    </div>
-
-    <!-- TAB 1: Flashcard Review Mode Section -->
-    <section id="tab-review-content" class="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative">
-      <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
-        <h2 class="text-lg font-semibold text-slate-200 flex items-center gap-2">
-          <i data-lucide="flame" class="text-orange-400 w-5 h-5"></i>
-          Ôn Tập Hôm Nay (<span id="due-count" class="text-indigo-400 font-bold">0</span>)
-        </h2>
-        
-        <div class="flex flex-wrap items-center gap-2">
-          <!-- Nút Ẩn chữ Phồn thể để luyện nghe gõ chữ -->
-          <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer bg-slate-900/70 px-2.5 py-1.5 rounded-lg border border-slate-700 hover:border-amber-500 transition" title="Ẩn chữ Hán mặt trước để luyện nghe và gõ lại chữ Phồn thể">
-            <input type="checkbox" id="toggle-hide-front" onchange="toggleHideFront()" class="accent-amber-500 rounded cursor-pointer">
-            <span>Ẩn chữ Hán</span>
-          </label>
-
-          <!-- Nút Bật/Tắt chế độ gõ đáp án -->
-          <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer bg-slate-900/70 px-2.5 py-1.5 rounded-lg border border-slate-700 hover:border-indigo-500 transition">
-            <input type="checkbox" id="toggle-typing-mode" checked onchange="toggleTypingMode()" class="accent-indigo-500 rounded cursor-pointer">
-            <span>Gõ kiểm tra</span>
-          </label>
-
-          <div class="text-xs text-slate-400 font-mono bg-slate-900/50 px-2.5 py-1.5 rounded-lg" id="card-progress">0 / 0</div>
-        </div>
-      </div>
-
-      <!-- Card Display Container -->
-      <div id="review-container" class="min-h-[300px] flex flex-col justify-center items-center">
-        <!-- Empty State -->
-        <div id="empty-state" class="text-center py-12 hidden">
-          <i data-lucide="check-circle-2" class="w-16 h-16 text-emerald-400 mx-auto mb-3 opacity-80"></i>
-          <p class="text-slate-300 font-medium text-lg">Tuyệt vời! Bạn đã hoàn thành bài ôn tập hôm nay.</p>
-          <p class="text-slate-500 text-sm mt-1">Hãy thêm thẻ mới hoặc quay lại vào ngày mai.</p>
-        </div>
-
-        <!-- Active Flashcard -->
-        <div id="flashcard" class="w-full max-w-lg hidden">
-          <div id="card-inner" onclick="flipCard()" class="bg-slate-700/60 border border-slate-600 rounded-2xl p-6 min-h-[260px] flex flex-col justify-between shadow-lg transition-all duration-300 cursor-pointer">
-            
-            <!-- Front of Card -->
-            <div id="card-front" class="space-y-4">
-              <div class="flex justify-between items-start">
-                <span class="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-900/60 text-indigo-300 border border-indigo-700/50">Phồn thể</span>
-                <button onclick="event.stopPropagation(); speakCurrent()" class="p-2 hover:bg-slate-600/50 rounded-full text-indigo-400 transition flex items-center gap-1 text-xs" title="Nghe phát âm">
-                  <i data-lucide="volume-2" class="w-5 h-5"></i>
-                </button>
-              </div>
-              
-              <div class="text-center py-2">
-                <h3 id="front-text" class="text-3xl font-bold text-white tracking-wide"></h3>
-                <!-- Gợi ý khi bật chế độ Ẩn chữ Hán -->
-                <div id="hidden-front-placeholder" class="hidden py-2 flex flex-col items-center gap-2">
-                  <button onclick="event.stopPropagation(); speakCurrent()" class="px-4 py-2 rounded-full bg-indigo-600/30 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/50 text-sm flex items-center gap-2 transition">
-                    <i data-lucide="volume-2" class="w-4 h-4"></i> Bấm để nghe phát âm
-                  </button>
-                  <span class="text-[11px] text-slate-400 italic">(Đang ẩn chữ Hán — hãy nghe và gõ lại)</span>
-                </div>
-              </div>
-
-              <!-- Khu vực nhập đáp án (Typing Input) -->
-              <div id="typing-area" onclick="event.stopPropagation()" class="space-y-2 pt-1">
-                <div class="flex gap-2">
-                  <input 
-                    type="text" 
-                    id="user-answer-input" 
-                    onkeydown="handleAnswerKeydown(event)"
-                    placeholder="Gõ Chữ Phồn thể, Pinyin hoặc Nghĩa..." 
-                    autocomplete="off"
-                    class="flex-1 bg-slate-900/90 border border-slate-600 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition"
-                  >
-                  <button 
-                    type="button" 
-                    onclick="checkAnswer()" 
-                    class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition shrink-0 shadow-md">
-                    Kiểm tra
-                  </button>
-                </div>
-              </div>
-
-              <p id="flip-hint" class="text-center text-xs text-slate-400 flex items-center justify-center gap-1 pt-1">
-                <i data-lucide="rotate-cw" class="w-3 h-3"></i> Bấm vào thẻ để lật xem đáp án
-              </p>
-            </div>
-
-            <!-- Back of Card (Hidden by default) -->
-            <div id="card-back" class="space-y-4 border-t border-slate-600/80 pt-4 mt-4 hidden">
-              
-              <!-- Kết quả so sánh đáp án người dùng nhập (Gồm cả Chữ Phồn thể chuẩn) -->
-              <div id="answer-feedback" class="hidden rounded-xl p-3.5 text-sm border space-y-2">
-                <div class="flex items-center gap-2 font-bold" id="feedback-header"></div>
-                <div class="text-xs space-y-1.5 pt-1 border-t border-white/10">
-                  <div>
-                    <span class="opacity-75">Bạn đã nhập:</span> 
-                    <span id="user-typed-display" class="font-semibold text-base ml-1"></span>
-                  </div>
-                  <div>
-                    <span class="opacity-75">Chữ Phồn thể chuẩn:</span> 
-                    <span id="correct-trad-display" class="font-bold text-white text-lg ml-1 tracking-wide"></span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <p class="text-xs text-slate-400">Chữ Phồn thể:</p>
-                <p id="back-traditional" class="text-xl font-bold text-white tracking-wide"></p>
-              </div>
-              <div>
-                <p class="text-xs text-slate-400">Pinyin:</p>
-                <p id="back-pinyin" class="text-lg font-medium text-amber-300"></p>
-              </div>
-              <div>
-                <p class="text-xs text-slate-400">Nghĩa tiếng Việt:</p>
-                <p id="back-meaning" class="text-base text-emerald-300 font-medium"></p>
-              </div>
-
-              <!-- Khu vực Ví dụ (Mặt sau) -->
-              <div id="back-example-container" class="hidden bg-slate-800/80 border border-slate-600/70 rounded-xl p-3.5 space-y-1.5">
-                <div class="flex justify-between items-center">
-                  <p class="text-xs font-semibold text-cyan-400 flex items-center gap-1.5">
-                    <i data-lucide="quote" class="w-3.5 h-3.5"></i> Ví dụ ngữ cảnh:
-                  </p>
-                  <button type="button" onclick="event.stopPropagation(); speakExample()" class="p-1.5 hover:bg-slate-700 rounded-full text-cyan-400 transition" title="Chỉ nghe phát âm chữ Phồn thể">
-                    <i data-lucide="volume-2" class="w-4 h-4"></i>
-                  </button>
-                </div>
-                <p id="back-example" class="text-sm text-slate-200 whitespace-pre-line leading-relaxed"></p>
-              </div>
-
-              <div id="context-image-container" class="hidden">
-                <img id="context-image" class="w-full max-h-48 object-cover rounded-lg border border-slate-600" src="" alt="Context">
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-
-      <!-- SRS Rating Buttons -->
-      <div id="srs-controls" class="grid grid-cols-4 gap-2 mt-6 hidden">
-        <button onclick="rateCard(1)" class="bg-red-900/40 hover:bg-red-800/60 border border-red-700/60 text-red-200 py-2.5 rounded-xl text-xs font-semibold flex flex-col items-center transition">
-          <span>Again</span>
-          <span class="text-[10px] text-red-400 font-normal">&lt; 1 phút</span>
-        </button>
-        <button onclick="rateCard(2)" class="bg-orange-900/40 hover:bg-orange-800/60 border border-orange-700/60 text-orange-200 py-2.5 rounded-xl text-xs font-semibold flex flex-col items-center transition">
-          <span>Hard</span>
-          <span class="text-[10px] text-orange-400 font-normal">12 giờ</span>
-        </button>
-        <button onclick="rateCard(3)" class="bg-blue-900/40 hover:bg-blue-800/60 border border-blue-700/60 text-blue-200 py-2.5 rounded-xl text-xs font-semibold flex flex-col items-center transition">
-          <span>Good</span>
-          <span class="text-[10px] text-blue-400 font-normal">1 ngày</span>
-        </button>
-        <button onclick="rateCard(4)" class="bg-emerald-900/40 hover:bg-emerald-800/60 border border-emerald-700/60 text-emerald-200 py-2.5 rounded-xl text-xs font-semibold flex flex-col items-center transition">
-          <span>Easy</span>
-          <span class="text-[10px] text-emerald-400 font-normal">4 ngày</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- TAB 2: Card Management List Section -->
-    <section id="tab-manage-content" class="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl hidden">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <h3 class="text-md font-semibold text-slate-200 flex items-center gap-2">
-          <i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i>
-          Danh Sách Thẻ (<span id="total-count">0</span>)
-        </h3>
-        <div class="flex items-center gap-2 w-full sm:w-auto">
-          <input type="text" id="search-input" oninput="filterCards()" placeholder="Tìm kiếm từ vựng, ví dụ..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 w-full sm:w-52">
-          <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-2 rounded-lg flex items-center gap-1 transition shrink-0">
-            <i data-lucide="plus" class="w-4 h-4"></i> Thêm từ
-          </button>
-        </div>
-      </div>
-
-      <!-- Table of Cards -->
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-slate-300">
-          <thead class="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-700">
-            <tr>
-              <th class="py-3 px-4">Tiếng Trung (Phồn Thể)</th>
-              <th class="py-3 px-4">Pinyin</th>
-              <th class="py-3 px-4">Nghĩa & Ví Dụ</th>
-              <th class="py-3 px-4 text-center">Trạng Thái SRS</th>
-              <th class="py-3 px-4 text-center">Thao Tác</th>
-            </tr>
-          </thead>
-          <tbody id="card-table-body" class="divide-y divide-slate-700/60">
-            <!-- Dynamic rows will render here -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- Add/Edit Card Modal -->
-  <div id="card-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
-      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
-        <h3 id="modal-title" class="text-lg font-bold text-slate-100">Thêm Thẻ Từ Vựng Mới</h3>
-        <button onclick="toggleModal(false)" class="text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
-      </div>
-      <form id="card-form" onsubmit="saveCard(event)" class="space-y-4">
-        <input type="hidden" id="edit-id">
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">Tiếng Trung Phồn Thể *</label>
-          <input type="text" id="input-traditional" required placeholder="Ví dụ: 這台筆電 CP 值真的很爆表" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">Phiên âm Pinyin *</label>
-          <input type="text" id="input-pinyin" required placeholder="Ví dụ: zhè tái bǐ diàn C-P zhí..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">Dịch Nghĩa Tiếng Việt *</label>
-          <input type="text" id="input-meaning" required placeholder="Ví dụ: Chiếc laptop này p/p rất cao..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">Ví dụ ngữ cảnh (Mặt sau - Tùy chọn)</label>
-          <textarea id="input-example" rows="3" placeholder="Ví dụ:&#10;這個價格買到這種規格，CP值真的很高！&#10;zhège jiàgé mǎidào zhèzhǒng guīgé...&#10;(Mua được cấu hình này với giá đó thì p/p quá cao!)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 leading-relaxed"></textarea>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">URL Ảnh Ngữ Cảnh (Tùy chọn)</label>
-          <input type="url" id="input-image" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
-        </div>
-        <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="toggleModal(false)" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-lg">Hủy</button>
-          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg">Lưu Thẻ</button>
-        </div>
-      </form>
-    </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('study')">Ôn tập phản xạ</button>
+    <button class="tab-btn" onclick="switchTab('add')">Thêm / Quản lý từ</button>
   </div>
 
-  <!-- Delete Confirmation Modal -->
-  <div id="delete-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-      <div class="w-12 h-12 rounded-full bg-red-900/30 border border-red-700/50 flex items-center justify-center mx-auto text-red-400">
-        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
-      </div>
-      <h3 class="text-lg font-bold text-slate-100">Xác nhận xóa</h3>
-      <p class="text-xs text-slate-400">Bạn có chắc chắn muốn xóa vĩnh viễn thẻ này không?</p>
-      <div class="flex justify-center gap-3 pt-2">
-        <button onclick="closeDeleteModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-lg">Hủy</button>
-        <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-lg">Xóa thẻ</button>
-      </div>
+  <div class="sync-status" id="syncStatus">🔄 Đang kết nối Cloud...</div>
+
+  <div id="studyView" class="view active">
+    <div id="statBox" class="stat-box">Đang tải dữ liệu...</div>
+
+    <!-- Thanh chuyển đổi kiểu xuất hiện Flashcard -->
+    <div class="mode-bar">
+      <button class="mode-btn active" id="mode-mix" onclick="setStudyMode('mix')">🎲 Trộn ngẫu nhiên</button>
+      <button class="mode-btn" id="mode-vi2zh" onclick="setStudyMode('vi2zh')">🇻🇳→🇹🇼 Gõ Phồn thể</button>
+      <button class="mode-btn" id="mode-zh2vi" onclick="setStudyMode('zh2vi')">🇹🇼→🇻🇳 Đọc hiểu</button>
+      <button class="mode-btn" id="mode-audio" onclick="setStudyMode('audio')">🎧 Nghe phản xạ</button>
+    </div>
+
+    <div id="cardContainer"></div>
+  </div>
+
+  <div id="addView" class="view">
+    <div class="form-card">
+      <form id="addCardForm">
+        <h3 id="formTitle" style="margin-top:0;">Thêm từ / câu giao tiếp mới</h3>
+        <input type="hidden" id="editCardId" value="">
+        
+        <div class="form-group">
+          <label for="traditional">Chữ Phồn thể (繁體中文):</label>
+          <input type="text" id="traditional" placeholder="vd: 實驗室電腦的硬碟滿了，怎麼辦？" required>
+        </div>
+        <div class="form-group">
+          <label for="pinyin">Pinyin:</label>
+          <input type="text" id="pinyin" placeholder="vd: Shíyànshì diànnǎo de yìngdié mǎn le, zěnme bàn?" required>
+        </div>
+        <div class="form-group">
+          <label for="vietnamese">Nghĩa tiếng Việt:</label>
+          <input type="text" id="vietnamese" placeholder="vd: Ổ cứng máy tính phòng Lab đầy rồi, làm sao bây giờ?" required>
+        </div>
+        <div class="form-group">
+          <label for="example">Ví dụ ngữ cảnh / Câu trả lời mẫu (Phồn thể):</label>
+          <textarea id="example" rows="2" placeholder="vd: 我先把舊的資料備份到雲端，再清空硬碟空間。"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="examplePinyin">Pinyin câu ví dụ (tùy chọn):</label>
+          <input type="text" id="examplePinyin" placeholder="vd: Wǒ xiān bǎ jiù de zīliào bèifèn dào yúnduān...">
+        </div>
+        <div class="form-group">
+          <label for="exampleMeaning">Nghĩa câu ví dụ (tùy chọn):</label>
+          <input type="text" id="exampleMeaning" placeholder="vd: Em sao lưu dữ liệu cũ lên đám mây trước rồi dọn ổ cứng.">
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn-submit">Lưu vào bộ thẻ (Tự đồng bộ)</button>
+        <button type="button" id="cancelEditBtn" class="btn-cancel" style="display:none;" onclick="resetForm()">Hủy sửa</button>
+      </form>
+    </div>
+
+    <div class="word-list-section">
+      <div class="word-list-title">📋 Danh sách thẻ đã lưu (<span id="totalWordCount">0</span>)</div>
+      <div id="wordListContainer"></div>
     </div>
   </div>
 
   <script>
-    // 1. Cấu hình Firebase Realtime Database
+    // Cấu hình Firebase dự án tiếng Trung Đài Loan
     const firebaseConfig = {
-      apiKey: "AIzaSyBfIpqmiOwghVsSrNd_TSpS57Cz1O3qKyo",
+      apiKey: "AIzaSyD2qytj3TPX4n5TXnGr-JJor9pqO_up4N4",
       authDomain: "my-taiwanese-project.firebaseapp.com",
       databaseURL: "https://my-taiwanese-project-default-rtdb.firebaseio.com",
       projectId: "my-taiwanese-project",
       storageBucket: "my-taiwanese-project.firebasestorage.app",
-      messagingSenderId: "1000055620120",
-      appId: "1:1000055620120:web:1fa8c1f96f77c2314c796d",
-      measurementId: "G-JJ6BKYJMBY"
+      messagingSenderId: "775151282069",
+      appId: "1:775151282069:web:0eef220ca1916ec868f89c"
     };
 
-    let dbRef = null;
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const cardsRef = db.ref('taiwanese_cards');
+
     let cards = [];
-    let dueCards = [];
-    let currentReviewIndex = 0;
-    let isFlipped = false;
-    let pendingDeleteId = null;
+    let currentCard = null;
+    let currentCardId = null;
+    let activePromptType = 'vi2zh'; // 'vi2zh' | 'zh2vi' | 'audio'
+    let studyMode = 'mix'; // 'mix' | 'vi2zh' | 'zh2vi' | 'audio'
+    let isAnswerShown = false;
+    let userTypedAnswer = '';
 
-    // Khởi tạo Firebase
-    try {
-      firebase.initializeApp(firebaseConfig);
-      dbRef = firebase.database().ref('flashcards');
-      document.getElementById('sync-status').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Đã kết nối Cloud`;
-    } catch (e) {
-      console.warn("Lỗi khởi tạo Firebase:", e);
-      document.getElementById('sync-status').innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500"></span> Offline (Local)`;
-    }
-
-    // 2. Khởi chạy Ứng dụng
-    document.addEventListener("DOMContentLoaded", () => {
-      lucide.createIcons();
-      loadInitialData();
+    cardsRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      cards = data ? Object.values(data) : [];
+      document.getElementById('syncStatus').textContent = '🟢 Đã đồng bộ Cloud (Taiwan Lab Flashcards)';
+      renderStudyCard();
+      renderWordList();
     });
 
-    // 3. Logic Chuyển Đổi Tab
-    function switchTab(tabName) {
-      const btnReview = document.getElementById('btn-tab-review');
-      const btnManage = document.getElementById('btn-tab-manage');
-      const contentReview = document.getElementById('tab-review-content');
-      const contentManage = document.getElementById('tab-manage-content');
-
-      if (tabName === 'review') {
-        btnReview.className = "flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-500";
-        btnManage.className = "flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 bg-slate-700/70 text-slate-300 hover:bg-slate-700 hover:text-white";
-        contentReview.classList.remove('hidden');
-        contentManage.classList.add('hidden');
-      } else if (tabName === 'manage') {
-        btnManage.className = "flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-500";
-        btnReview.className = "flex-1 py-3 px-4 rounded-xl font-bold text-center text-sm md:text-base transition-all duration-200 bg-slate-700/70 text-slate-300 hover:bg-slate-700 hover:text-white";
-        contentManage.classList.remove('hidden');
-        contentReview.classList.add('hidden');
-      }
-    }
-
-    function loadInitialData() {
-      const localData = localStorage.getItem('anki_cn_cards');
-      if (localData) {
-        try { cards = JSON.parse(localData); } catch(e){}
-      }
-      renderAll();
-      listenToFirebase();
-    }
-
-    function listenToFirebase() {
-      if (!dbRef) return;
-      dbRef.on('value', (snapshot) => {
-        const val = snapshot.val();
-        if (val) {
-          cards = Array.isArray(val) ? val : Object.values(val);
-        } else {
-          cards = [];
-        }
-        localStorage.setItem('anki_cn_cards', JSON.stringify(cards));
-        renderAll();
-      });
-    }
-
-    // 4. Render Giao diện
-    function renderAll() {
-      updateReviewQueue();
-      renderTable();
-      document.getElementById('total-count').innerText = cards.length;
-    }
-
-    function updateReviewQueue() {
-      const now = Date.now();
-      dueCards = cards.filter(c => c.nextReview <= now);
-      document.getElementById('due-count').innerText = dueCards.length;
-
-      if (dueCards.length > 0) {
-        document.getElementById('empty-state').classList.add('hidden');
-        document.getElementById('flashcard').classList.remove('hidden');
-        document.getElementById('srs-controls').classList.remove('hidden');
-        showCurrentCard();
-      } else {
-        document.getElementById('empty-state').classList.remove('hidden');
-        document.getElementById('flashcard').classList.add('hidden');
-        document.getElementById('srs-controls').classList.add('hidden');
-        document.getElementById('card-progress').innerText = "0 / 0";
-      }
-    }
-
-    function showCurrentCard() {
-      if (currentReviewIndex >= dueCards.length) currentReviewIndex = 0;
-      const card = dueCards[currentReviewIndex];
-      if (!card) return;
-
-      isFlipped = false;
-      document.getElementById('card-back').classList.add('hidden');
-      document.getElementById('front-text').innerText = card.traditional;
-      document.getElementById('back-traditional').innerText = card.traditional;
-      document.getElementById('back-pinyin').innerText = card.pinyin;
-      document.getElementById('back-meaning').innerText = card.meaning;
-
-      // Hiển thị Ví dụ ở mặt sau (nếu có)
-      const exampleContainer = document.getElementById('back-example-container');
-      const exampleEl = document.getElementById('back-example');
-      if (card.example && card.example.trim() !== '') {
-        exampleEl.innerText = card.example;
-        exampleContainer.classList.remove('hidden');
-      } else {
-        exampleContainer.classList.add('hidden');
-      }
-
-      // Cập nhật trạng thái Ẩn/Hiện chữ Phồn thể mặt trước
-      applyHideFrontState();
-
-      // Reset ô nhập đáp án và khung thông báo kết quả
-      const inputEl = document.getElementById('user-answer-input');
-      const feedbackEl = document.getElementById('answer-feedback');
-      inputEl.value = '';
-      feedbackEl.classList.add('hidden');
-
-      const imgContainer = document.getElementById('context-image-container');
-      if (card.image) {
-        document.getElementById('context-image').src = card.image;
-        imgContainer.classList.remove('hidden');
-      } else {
-        imgContainer.classList.add('hidden');
-      }
-
-      document.getElementById('card-progress').innerText = `${currentReviewIndex + 1} / ${dueCards.length}`;
-
-      // Tự động focus vào ô nhập nếu đang bật chế độ gõ
-      if (document.getElementById('toggle-typing-mode').checked) {
-        setTimeout(() => inputEl.focus(), 50);
-      }
-
-      speakText(card.traditional);
-    }
-
-    function flipCard() {
-      if (dueCards.length === 0) return;
-      isFlipped = !isFlipped;
-      const back = document.getElementById('card-back');
-      if (isFlipped) {
-        back.classList.remove('hidden');
-        // Khi lật thẻ thì hiện luôn chữ Hán mặt trước nếu đang ẩn
-        document.getElementById('front-text').classList.remove('hidden');
-        document.getElementById('hidden-front-placeholder').classList.add('hidden');
-      } else {
-        back.classList.add('hidden');
-        applyHideFrontState();
-      }
-    }
-
-    // --- TÍNH NĂNG ẨN CHỮ HÁN & KIỂM TRA ĐÁP ÁN ---
-    function toggleHideFront() {
-      applyHideFrontState();
-      if (document.getElementById('toggle-typing-mode').checked) {
-        document.getElementById('user-answer-input').focus();
-      }
-    }
-
-    function applyHideFrontState() {
-      const hideFront = document.getElementById('toggle-hide-front').checked;
-      const frontText = document.getElementById('front-text');
-      const placeholder = document.getElementById('hidden-front-placeholder');
-
-      if (hideFront && !isFlipped) {
-        frontText.classList.add('hidden');
-        placeholder.classList.remove('hidden');
-      } else {
-        frontText.classList.remove('hidden');
-        placeholder.classList.add('hidden');
-      }
-    }
-
-    function toggleTypingMode() {
-      const isChecked = document.getElementById('toggle-typing-mode').checked;
-      const typingArea = document.getElementById('typing-area');
-      if (isChecked) {
-        typingArea.classList.remove('hidden');
-        document.getElementById('user-answer-input').focus();
-      } else {
-        typingArea.classList.add('hidden');
-      }
-    }
-
-    function handleAnswerKeydown(event) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        checkAnswer();
-      }
-    }
-
-    // Chuẩn hóa chuỗi để so sánh (bỏ dấu câu tiếng Trung/Việt, khoảng trắng thừa, hỗ trợ Pinyin không dấu)
-    function normalizeText(str) {
-      return str
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/đ/g, "d")
-        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?？，。！、；：「」『』（）\s]/g, "")
-        .trim();
-    }
-
-    function checkAnswer() {
-      if (dueCards.length === 0) return;
-      const card = dueCards[currentReviewIndex];
-      const rawUserAnswer = document.getElementById('user-answer-input').value.trim();
-
-      // Nếu chưa nhập gì thì chỉ lật thẻ xem đáp án
-      if (!rawUserAnswer) {
-        if (!isFlipped) flipCard();
-        return;
-      }
-
-      const normUser = normalizeText(rawUserAnswer);
-      const normPinyin = normalizeText(card.pinyin);
-      const normMeaning = normalizeText(card.meaning);
-      const normTrad = normalizeText(card.traditional);
-
-      // Tách các nghĩa nếu có dấu phẩy hoặc dấu gạch chéo
-      const meaningParts = card.meaning.split(/[,;/]/).map(part => normalizeText(part)).filter(p => p.length > 0);
-
-      // Kiểm tra khớp: khớp Chữ Phồn thể, khớp Pinyin, hoặc khớp Nghĩa tiếng Việt
-      const isCorrect = 
-        (normTrad.length > 0 && normUser === normTrad) ||
-        (normPinyin.length > 0 && normUser === normPinyin) ||
-        (normMeaning.length > 0 && normUser === normMeaning) ||
-        meaningParts.includes(normUser);
-
-      // Hiển thị kết quả lên mặt sau của thẻ kèm Chữ Phồn thể chuẩn
-      const feedbackEl = document.getElementById('answer-feedback');
-      const headerEl = document.getElementById('feedback-header');
-      const typedDisplayEl = document.getElementById('user-typed-display');
-      const correctTradDisplayEl = document.getElementById('correct-trad-display');
-
-      typedDisplayEl.innerText = rawUserAnswer;
-      correctTradDisplayEl.innerText = card.traditional;
-      feedbackEl.classList.remove('hidden');
-
-      if (isCorrect) {
-        feedbackEl.className = "rounded-xl p-3.5 text-sm border bg-emerald-950/70 border-emerald-500/70 text-emerald-300 space-y-2";
-        headerEl.innerHTML = `<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i> Chính xác!`;
-      } else {
-        feedbackEl.className = "rounded-xl p-3.5 text-sm border bg-red-950/70 border-red-500/70 text-red-300 space-y-2";
-        headerEl.innerHTML = `<i data-lucide="x-circle" class="w-4 h-4 text-red-400"></i> Chưa chính xác`;
-      }
-
-      lucide.createIcons();
-
-      // Lật thẻ để đối chiếu với đáp án chuẩn
-      if (!isFlipped) {
-        flipCard();
-      }
-    }
-
-    // 5. Thuật toán SRS
-    function rateCard(rating) {
-      if (dueCards.length === 0) return;
-      const card = dueCards[currentReviewIndex];
-      const now = Date.now();
-
-      if (rating === 1) { // Again
-        card.interval = 1;
-        card.nextReview = now + 60 * 1000;
-      } else if (rating === 2) { // Hard
-        card.interval = 0.5;
-        card.nextReview = now + 12 * 3600 * 1000;
-      } else if (rating === 3) { // Good
-        card.interval = 1;
-        card.nextReview = now + 24 * 3600 * 1000;
-      } else if (rating === 4) { // Easy
-        card.interval = 4;
-        card.nextReview = now + 4 * 24 * 3600 * 1000;
-      }
-
-      saveAllCards();
-      currentReviewIndex++;
-      if (currentReviewIndex >= dueCards.length) currentReviewIndex = 0;
-      updateReviewQueue();
-    }
-
-    // 6. Xử lý Thao tác Xóa & Sửa
-    function confirmDelete(id) {
-      pendingDeleteId = id;
-      document.getElementById('delete-modal').classList.remove('hidden');
-      document.getElementById('confirm-delete-btn').onclick = () => {
-        executeDelete(pendingDeleteId);
-        closeDeleteModal();
+    function createCard(traditional, pinyin, vietnamese, example, examplePinyin, exampleMeaning) {
+      return {
+        id: Date.now(),
+        traditional,
+        pinyin,
+        vietnamese,
+        example,
+        examplePinyin,
+        exampleMeaning,
+        dueTimestamp: Date.now()
       };
     }
 
-    function closeDeleteModal() {
-      pendingDeleteId = null;
-      document.getElementById('delete-modal').classList.add('hidden');
+    function saveCardsToCloud() {
+      document.getElementById('syncStatus').textContent = '⏳ Đang lưu lên Cloud...';
+      const cardsObj = {};
+      cards.forEach(card => cardsObj[card.id] = card);
+      cardsRef.set(cardsObj);
     }
 
-    function executeDelete(id) {
-      cards = cards.filter(card => String(card.id) !== String(id));
-      localStorage.setItem('anki_cn_cards', JSON.stringify(cards));
-      renderAll();
-
-      if (dbRef) {
-        dbRef.off();
-        dbRef.set(cards)
-          .then(() => {
-            listenToFirebase();
-          })
-          .catch((err) => {
-            console.error("Lỗi xóa Cloud:", err);
-            listenToFirebase();
-          });
-      }
+    function getDueCards() {
+      const now = Date.now();
+      return cards.filter(card => {
+        if (card.dueTimestamp) return card.dueTimestamp <= now;
+        if (card.dueDate) return new Date(card.dueDate + 'T00:00:00').getTime() <= now;
+        return true;
+      }).sort((a, b) => (a.dueTimestamp || 0) - (b.dueTimestamp || 0));
     }
 
-    function editCard(id) {
-      const card = cards.find(c => String(c.id) === String(id));
-      if (!card) return;
-
-      document.getElementById('edit-id').value = card.id;
-      document.getElementById('input-traditional').value = card.traditional;
-      document.getElementById('input-pinyin').value = card.pinyin;
-      document.getElementById('input-meaning').value = card.meaning;
-      document.getElementById('input-example').value = card.example || '';
-      document.getElementById('input-image').value = card.image || '';
-      document.getElementById('modal-title').innerText = "Chỉnh Sửa Thẻ Từ Vựng";
-
-      toggleModal(true);
+    function setStudyMode(mode) {
+      studyMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('mode-' + mode).classList.add('active');
+      currentCardId = null; // Ép chọn lại kiểu hiển thị cho thẻ hiện tại
+      isAnswerShown = false;
+      userTypedAnswer = '';
+      renderStudyCard();
     }
 
-    function openAddModal() {
-      toggleModal(true);
+    function pickPromptTypeForCard(card) {
+      if (studyMode !== 'mix') return studyMode;
+      // Khi ở chế độ Trộn ngẫu nhiên:
+      // 50% ra Tiếng Việt bắt gõ Phồn thể, 30% ra Phồn thể đọc hiểu, 20% ra Âm thanh nghe phản xạ
+      const r = Math.random();
+      if (r < 0.5) return 'vi2zh';
+      if (r < 0.8) return 'zh2vi';
+      return 'audio';
     }
 
-    function saveCard(event) {
-      event.preventDefault();
-      const id = document.getElementById('edit-id').value;
-      const traditional = document.getElementById('input-traditional').value.trim();
-      const pinyin = document.getElementById('input-pinyin').value.trim();
-      const meaning = document.getElementById('input-meaning').value.trim();
-      const example = document.getElementById('input-example').value.trim();
-      const image = document.getElementById('input-image').value.trim();
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
 
-      if (id) {
-        const card = cards.find(c => String(c.id) === String(id));
-        if (card) {
-          card.traditional = traditional;
-          card.pinyin = pinyin;
-          card.meaning = meaning;
-          card.example = example;
-          card.image = image;
-        }
+      if (tab === 'study') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('studyView').classList.add('active');
+        renderStudyCard();
       } else {
-        const newCard = {
-          id: Date.now(),
-          traditional,
-          pinyin,
-          meaning,
-          example,
-          image,
-          interval: 0,
-          nextReview: Date.now()
-        };
-        cards.push(newCard);
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('addView').classList.add('active');
+        renderWordList();
       }
-
-      saveAllCards();
-      toggleModal(false);
     }
 
-    function saveAllCards() {
-      localStorage.setItem('anki_cn_cards', JSON.stringify(cards));
-      if (dbRef) {
-        dbRef.set(cards);
-      }
-      renderAll();
-    }
-
-    // 7. Render Bảng Danh Sách Thẻ
-    function renderTable() {
-      const tbody = document.getElementById('card-table-body');
-      const query = document.getElementById('search-input').value.toLowerCase();
-      tbody.innerHTML = '';
-
-      const filtered = cards.filter(c => 
-        c.traditional.toLowerCase().includes(query) ||
-        c.pinyin.toLowerCase().includes(query) ||
-        c.meaning.toLowerCase().includes(query) ||
-        (c.example && c.example.toLowerCase().includes(query))
-      );
-
-      filtered.forEach(card => {
-        const isDue = card.nextReview <= Date.now();
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-700/40 transition border-b border-slate-700/40";
-        tr.innerHTML = `
-          <td class="py-3 px-4 font-semibold text-white flex items-center gap-2">
-            <button onclick="speakText('${card.traditional.replace(/'/g, "\\'")}')" class="text-indigo-400 hover:text-indigo-300 shrink-0">
-              <i data-lucide="volume-2" class="w-4 h-4"></i>
-            </button>
-            <span>${card.traditional}</span>
-          </td>
-          <td class="py-3 px-4 text-amber-300 font-mono text-xs">${card.pinyin}</td>
-          <td class="py-3 px-4">
-            <div class="text-emerald-300">${card.meaning}</div>
-            ${card.example ? `<div class="text-xs text-slate-400 mt-1 line-clamp-1 italic">VD: ${card.example}</div>` : ''}
-          </td>
-          <td class="py-3 px-4 text-center">
-            ${isDue ? 
-              `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-900/60 text-amber-300 border border-amber-700">Đến hạn</span>` : 
-              `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-400">Chờ</span>`}
-          </td>
-          <td class="py-3 px-4 text-center space-x-2">
-            <button onclick="editCard(${card.id})" class="p-1 text-slate-400 hover:text-indigo-400" title="Sửa"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-            <button onclick="confirmDelete(${card.id})" class="p-1 text-slate-400 hover:text-red-400" title="Xóa"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-      lucide.createIcons();
-    }
-
-    function filterCards() {
-      renderTable();
-    }
-
-    // 8. Text-To-Speech (Phát Âm Tiếng Trung Phồn Thể zh-TW)
-    function speakText(text) {
-      if (!('speechSynthesis' in window)) return;
+    function speakTaiwanese(text, e) {
+      if (e) e.stopPropagation();
+      if (!text || !('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'zh-TW';
-      utterance.rate = 0.85;
+      utterance.rate = 0.92;
+
+      const voices = window.speechSynthesis.getVoices();
+      const twVoice = voices.find(v => v.lang === 'zh-TW' || v.lang.includes('TW') || v.name.includes('Taiwan'));
+      if (twVoice) utterance.voice = twVoice;
       window.speechSynthesis.speak(utterance);
     }
 
-    function speakCurrent() {
-      if (dueCards.length > 0 && dueCards[currentReviewIndex]) {
-        speakText(dueCards[currentReviewIndex].traditional);
+    function updateCardSchedule(card, quality) {
+      const MINUTE = 60 * 1000;
+      const HOUR = 60 * MINUTE;
+      const DAY = 24 * HOUR;
+
+      let offset = 10 * MINUTE;
+      if (quality === 0) offset = 10 * MINUTE;       // Quên: 10 phút
+      else if (quality === 3) offset = 12 * HOUR;    // Khó: 12 tiếng
+      else if (quality === 4) offset = 1 * DAY;      // Tốt: 1 ngày
+      else if (quality === 5) offset = 2 * DAY;      // Dễ: 2 ngày
+
+      card.dueTimestamp = Date.now() + offset;
+      return card;
+    }
+
+    function handleRating(quality) {
+      if (!currentCard) return;
+      const updatedCard = updateCardSchedule(currentCard, quality);
+      const index = cards.findIndex(c => c.id === currentCard.id);
+      cards[index] = updatedCard;
+
+      saveCardsToCloud();
+      isAnswerShown = false;
+      userTypedAnswer = '';
+      currentCardId = null;
+      renderStudyCard();
+    }
+
+    function normalizeText(str) {
+      // Loại bỏ dấu câu phổ biến và khoảng trắng thừa để so sánh linh hoạt khi gõ câu dài
+      return String(str || '')
+        .toLowerCase()
+        .replace(/[，。！？、,.!?；;：:"'“”‘’\s]/g, '')
+        .trim();
+    }
+
+    function checkTypedAnswer() {
+      const inputEl = document.getElementById('userAnswerInput');
+      if (inputEl) userTypedAnswer = inputEl.value.trim();
+      isAnswerShown = true;
+      renderStudyCard();
+      if (currentCard) {
+        const targetZh = currentCard.traditional || currentCard.word || '';
+        speakTaiwanese(targetZh);
       }
     }
 
-    function speakExample() {
-      if (dueCards.length > 0 && dueCards[currentReviewIndex] && dueCards[currentReviewIndex].example) {
-        const rawExample = dueCards[currentReviewIndex].example;
-        // Chỉ lọc lấy ký tự chữ Hán (CJK Unified Ideographs) và dấu câu tiếng Trung
-        const chineseChars = rawExample.match(/[\u4e00-\u9fff，。！？、；：「」『』（）…—]+/g);
-        
-        if (chineseChars && chineseChars.length > 0) {
-          speakText(chineseChars.join(' '));
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function renderStudyCard() {
+      const dueCards = getDueCards();
+      const statBox = document.getElementById('statBox');
+      const container = document.getElementById('cardContainer');
+
+      statBox.textContent = `Thẻ cần ôn hiện tại: ${dueCards.length} / Tổng số thẻ: ${cards.length}`;
+
+      if (dueCards.length === 0) {
+        container.innerHTML = `
+          <div class="flashcard">
+            <h3>🎉 Bạn đã hoàn thành hết các thẻ đến hạn!</h3>
+            <p style="color: var(--muted);">Chuyển sang tab "Thêm / Quản lý từ" để nạp thêm từ vựng mới hoặc đợi thẻ quay lại theo lịch.</p>
+          </div>
+        `;
+        return;
+      }
+
+      currentCard = dueCards[0];
+      const zhText = currentCard.traditional || currentCard.word || '';
+      const pyText = currentCard.pinyin || '';
+      const viText = currentCard.vietnamese || currentCard.meaning || '';
+      const exZh = currentCard.example || '';
+      const exPy = currentCard.examplePinyin || '';
+      const exVi = currentCard.exampleMeaning || '';
+
+      // Khi chuyển sang thẻ mới, chọn ngẫu nhiên kiểu hiển thị (nếu ở chế độ Mix)
+      if (currentCardId !== currentCard.id) {
+        currentCardId = currentCard.id;
+        activePromptType = pickPromptTypeForCard(currentCard);
+        if (activePromptType === 'audio') {
+          setTimeout(() => speakTaiwanese(zhText), 200);
         }
       }
+
+      // Kiểm tra kết quả gõ
+      const normInput = normalizeText(userTypedAnswer);
+      const normZh = normalizeText(zhText);
+      const normPy = normalizeText(pyText);
+      const normVi = normalizeText(viText);
+
+      let isMatch = false;
+      if (normInput.length > 0) {
+        if (activePromptType === 'vi2zh') {
+          // Chế độ Tiếng Việt -> Phồn thể: bắt buộc khớp chữ Phồn thể
+          isMatch = (normInput === normZh);
+        } else {
+          // Chế độ Đọc hiểu / Nghe: chấp nhận khớp Phồn thể, Pinyin hoặc Nghĩa tiếng Việt
+          isMatch = (normInput === normZh || normInput === normPy || normInput === normVi);
+        }
+      }
+
+      // Giao diện mặt trước thay đổi theo từng kiểu
+      let frontHtml = '';
+      let placeholderText = '';
+      if (activePromptType === 'vi2zh') {
+        frontHtml = `
+          <span class="mode-badge badge-vi">🇻🇳 Phản xạ: Gõ chữ Phồn thể</span>
+          <div class="front-prompt-vi">${escapeHtml(viText)}</div>
+        `;
+        placeholderText = 'Gõ lại bằng Chữ Phồn thể...';
+      } else if (activePromptType === 'audio') {
+        frontHtml = `
+          <span class="mode-badge badge-audio">🎧 Nghe phản xạ (Giọng Đài Loan)</span>
+          <div class="front-prompt-audio">
+            <button class="big-audio-btn" onclick="speakTaiwanese('${zhText.replace(/'/g, "\\'")}', event)">🔊</button>
+            <div style="font-size: 13px; color: var(--muted); margin-top: 8px;">Bấm loa để nghe lại, sau đó gõ Chữ Phồn thể hoặc Nghĩa</div>
+          </div>
+        `;
+        placeholderText = 'Nghe được gì? Gõ Phồn thể hoặc Nghĩa...';
+      } else {
+        frontHtml = `
+          <span class="mode-badge badge-zh">🇹🇼 Đọc hiểu: Chữ Phồn thể</span>
+          <div class="front-prompt-zh">${escapeHtml(zhText)}</div>
+        `;
+        placeholderText = 'Gõ Pinyin hoặc Nghĩa tiếng Việt...';
+      }
+
+      container.innerHTML = `
+        <div class="flashcard">
+          ${frontHtml}
+
+          <div class="input-row">
+            <input 
+              type="text" 
+              id="userAnswerInput" 
+              class="answer-input" 
+              value="${escapeHtml(userTypedAnswer)}"
+              placeholder="${placeholderText}" 
+              autocomplete="off"
+              onkeydown="if(event.key === 'Enter') { event.preventDefault(); checkTypedAnswer(); }"
+            >
+            <button class="btn-check" onclick="checkTypedAnswer()">Kiểm tra</button>
+          </div>
+
+          ${!isAnswerShown ? `
+            <div class="flip-hint" onclick="checkTypedAnswer()">↻ Bấm vào đây để lật xem đáp án</div>
+          ` : `
+            ${userTypedAnswer ? `
+              <div class="check-result ${isMatch ? 'check-correct' : 'check-wrong'}">
+                ${isMatch 
+                  ? `✅ Chính xác! Bạn đã gõ đúng: "${escapeHtml(userTypedAnswer)}"` 
+                  : `❌ Chưa khớp! Bạn gõ: "${escapeHtml(userTypedAnswer)}"`
+                }
+              </div>
+            ` : ''}
+
+            <div class="back-details">
+              <div class="field-label">Chữ Phồn thể:</div>
+              <div class="val-zh">
+                <span>${escapeHtml(zhText)}</span>
+                <button class="icon-audio" onclick="speakTaiwanese('${zhText.replace(/'/g, "\\'")}', event)" title="Nghe phát âm Đài Loan">🔊</button>
+              </div>
+
+              <div class="field-label">Pinyin:</div>
+              <div class="val-pinyin">${escapeHtml(pyText)}</div>
+
+              <div class="field-label">Nghĩa tiếng Việt:</div>
+              <div class="val-vi">(${escapeHtml(viText)})</div>
+
+              ${exZh ? `
+                <div class="context-box">
+                  <div class="context-header">
+                    <span>❞ Ví dụ ngữ cảnh / Câu đối đáp:</span>
+                    <button class="icon-audio" onclick="speakTaiwanese('${exZh.replace(/'/g, "\\'")}', event)" title="Nghe câu ví dụ">🔊</button>
+                  </div>
+                  <div class="context-zh">${escapeHtml(exZh)}</div>
+                  ${exPy ? `<div class="context-py">${escapeHtml(exPy)}</div>` : ''}
+                  ${exVi ? `<div class="context-vi">(${escapeHtml(exVi)})</div>` : ''}
+                </div>
+              ` : ''}
+            </div>
+          `}
+        </div>
+
+        ${isAnswerShown ? `
+          <div class="rating-btns">
+            <button class="rate-btn again" onclick="handleRating(0)">Quên<br><small>10 phút</small></button>
+            <button class="rate-btn hard" onclick="handleRating(3)">Khó<br><small>12 tiếng</small></button>
+            <button class="rate-btn good" onclick="handleRating(4)">Tốt<br><small>1 ngày</small></button>
+            <button class="rate-btn easy" onclick="handleRating(5)">Dễ<br><small>2 ngày</small></button>
+          </div>
+        ` : ''}
+      `;
+
+      if (!isAnswerShown) {
+        const inputEl = document.getElementById('userAnswerInput');
+        if (inputEl) inputEl.focus();
+      }
     }
 
-    // 9. Quản lý Modal Popup
-    function toggleModal(show) {
-      const modal = document.getElementById('card-modal');
-      if (show) {
-        modal.classList.remove('hidden');
-      } else {
-        modal.classList.add('hidden');
-        document.getElementById('card-form').reset();
-        document.getElementById('edit-id').value = '';
-        document.getElementById('modal-title').innerText = "Thêm Thẻ Từ Vựng Mới";
+    function renderWordList() {
+      const container = document.getElementById('wordListContainer');
+      document.getElementById('totalWordCount').textContent = cards.length;
+
+      if (cards.length === 0) {
+        container.innerHTML = '<div style="text-align:center; color:var(--muted); padding:15px;">Chưa có thẻ nào trong danh sách.</div>';
+        return;
       }
+
+      const sortedCards = [...cards].reverse();
+      container.innerHTML = sortedCards.map(card => `
+        <div class="word-item">
+          <div class="word-info">
+            <div class="word-zh">${escapeHtml(card.traditional || card.word)}</div>
+            <div class="word-py">${escapeHtml(card.pinyin)}</div>
+            <div class="word-vi">${escapeHtml(card.vietnamese || card.meaning)}</div>
+          </div>
+          <div class="word-actions">
+            <button class="btn-action btn-edit" onclick="editCard(${card.id})">Sửa</button>
+            <button class="btn-action btn-delete" onclick="deleteCard(${card.id})">Xóa</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('addCardForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const traditional = document.getElementById('traditional').value.trim();
+      const pinyin = document.getElementById('pinyin').value.trim();
+      const vietnamese = document.getElementById('vietnamese').value.trim();
+      const example = document.getElementById('example').value.trim();
+      const examplePinyin = document.getElementById('examplePinyin').value.trim();
+      const exampleMeaning = document.getElementById('exampleMeaning').value.trim();
+      const editId = document.getElementById('editCardId').value;
+
+      if (!traditional || !vietnamese) return;
+
+      if (editId) {
+        const index = cards.findIndex(c => c.id == editId);
+        if (index !== -1) {
+          cards[index].traditional = traditional;
+          cards[index].pinyin = pinyin;
+          cards[index].vietnamese = vietnamese;
+          cards[index].example = example;
+          cards[index].examplePinyin = examplePinyin;
+          cards[index].exampleMeaning = exampleMeaning;
+        }
+      } else {
+        cards.push(createCard(traditional, pinyin, vietnamese, example, examplePinyin, exampleMeaning));
+      }
+
+      saveCardsToCloud();
+      resetForm();
+    });
+
+    function editCard(id) {
+      const card = cards.find(c => c.id == id);
+      if (!card) return;
+
+      document.getElementById('editCardId').value = card.id;
+      document.getElementById('traditional').value = card.traditional || card.word || '';
+      document.getElementById('pinyin').value = card.pinyin || '';
+      document.getElementById('vietnamese').value = card.vietnamese || card.meaning || '';
+      document.getElementById('example').value = card.example || '';
+      document.getElementById('examplePinyin').value = card.examplePinyin || '';
+      document.getElementById('exampleMeaning').value = card.exampleMeaning || '';
+
+      document.getElementById('formTitle').textContent = 'Chỉnh sửa thẻ';
+      document.getElementById('submitBtn').textContent = 'Lưu thay đổi';
+      document.getElementById('cancelEditBtn').style.display = 'block';
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function deleteCard(id) {
+      if (confirm('Bạn có chắc chắn muốn xóa thẻ này?')) {
+        cards = cards.filter(c => c.id != id);
+        saveCardsToCloud();
+      }
+    }
+
+    function resetForm() {
+      document.getElementById('editCardId').value = '';
+      document.getElementById('traditional').value = '';
+      document.getElementById('pinyin').value = '';
+      document.getElementById('vietnamese').value = '';
+      document.getElementById('example').value = '';
+      document.getElementById('examplePinyin').value = '';
+      document.getElementById('exampleMeaning').value = '';
+
+      document.getElementById('formTitle').textContent = 'Thêm từ / câu giao tiếp mới';
+      document.getElementById('submitBtn').textContent = 'Lưu vào bộ thẻ (Tự đồng bộ)';
+      document.getElementById('cancelEditBtn').style.display = 'none';
     }
   </script>
 </body>
