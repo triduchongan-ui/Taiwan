@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anki Taiwanese Chinese - Phản Xạ Phòng Lab (Offline & Cloud)</title>
+  <title>Anki Taiwanese Chinese - Phản Xạ Phòng Lab</title>
   <style>
     :root {
       --bg: #181c24;
@@ -231,7 +231,7 @@
     <button class="tab-btn" onclick="switchTab('add')">Thêm / Quản lý</button>
   </div>
 
-  <div class="sync-status" id="syncStatus">🔄 Đang khởi tạo dữ liệu Offline & Cloud...</div>
+  <div class="sync-status" id="syncStatus">🔄 Đang tải tiến độ học...</div>
 
   <!-- ================= TAB 1: ÔN TẬP THẺ ================= -->
   <div id="studyView" class="view active">
@@ -308,13 +308,13 @@
   </div>
 
   <script>
-    // ================= 1. CẤU HÌNH LOCAL STORAGE & OFFLINE SYNC =================
-    const LS_CARDS_KEY = 'tw_anki_cards_cache_v1';
-    const LS_NODE_KEY = 'tw_anki_detected_node_v1';
-    const LS_DIALOGUES_KEY = 'tw_anki_dialogues_cache_v1';
-    const LS_PENDING_CARDS_SYNC = 'tw_anki_pending_cards_sync_v1';
-    const LS_DELETED_CARD_IDS = 'tw_anki_deleted_card_ids_v1';
-    const LS_PENDING_DIALOGUES_SYNC = 'tw_anki_pending_dialogues_sync_v1';
+    // ================= 1. KHÓA CỨNG BỘ NHỚ CỤC BỘ DÙNG CHUNG MỌI PHIÊN BẢN CODE =================
+    const LS_CARDS_KEY = 'tw_anki_cards_master_v1';
+    const LS_NODE_KEY = 'tw_anki_detected_node_master_v1';
+    const LS_DIALOGUES_KEY = 'tw_anki_dialogues_master_v1';
+    const LS_PENDING_CARDS_SYNC = 'tw_anki_pending_cards_sync_master_v1';
+    const LS_DELETED_CARD_IDS = 'tw_anki_deleted_card_ids_master_v1';
+    const LS_PENDING_DIALOGUES_SYNC = 'tw_anki_pending_dialogues_sync_master_v1';
 
     let detectedCardNode = localStorage.getItem(LS_NODE_KEY) || 'anki_cards';
     let cards = [];
@@ -368,7 +368,6 @@
     let revealedTurns = {};
     let turnTypedAnswers = {};
 
-    // Nạp ngay dữ liệu từ máy (LocalStorage) trước khi kết nối mạng -> Mở web Offline dùng được ngay 0ms
     function loadFromLocalCache() {
       try {
         const cachedCards = localStorage.getItem(LS_CARDS_KEY);
@@ -410,20 +409,20 @@
       const hasPending = localStorage.getItem(LS_PENDING_CARDS_SYNC) === '1' || localStorage.getItem(LS_PENDING_DIALOGUES_SYNC) === '1';
 
       if (!isOnline) {
-        el.innerHTML = `📴 <strong>Chế độ Offline</strong> — Đang dùng dữ liệu lưu trên máy (${cards.length} thẻ)${hasPending ? ' • Có thay đổi chờ đồng bộ' : ''}`;
+        el.innerHTML = `📴 <strong>Chế độ Offline</strong> — Đang dùng dữ liệu trên máy (${cards.length} thẻ)${hasPending ? ' • Có thay đổi chờ đồng bộ' : ''}`;
         el.style.color = '#facc15';
       } else if (extraMsg) {
         el.textContent = extraMsg;
         el.style.color = '#86efac';
       } else {
-        el.textContent = `🟢 Đã đồng bộ Cloud & Lưu Offline (${cards.length} thẻ • nhánh: ${detectedCardNode})`;
+        el.textContent = `🟢 Đã đồng bộ Cloud & Bảo toàn tiến độ (${cards.length} thẻ • nhánh: ${detectedCardNode})`;
         el.style.color = '#86efac';
       }
     }
 
     loadFromLocalCache();
 
-    // ================= 2. KẾT NỐI FIREBASE & ĐỒNG BỘ 2 CHIỀU =================
+    // ================= 2. KẾT NỐI FIREBASE & BẢO TOÀN KEY GỐC =================
     const firebaseConfig = {
       apiKey: "AIzaSyBfIpqmiOwghVsSrNd_TSpS57Cz1O3qKyo",
       authDomain: "my-taiwanese-project.firebaseapp.com",
@@ -450,7 +449,19 @@
       console.warn('Khởi tạo Firebase ở chế độ Offline:', err);
     }
 
-    function normalizeLoadedCard(rawItem, fallbackKey) {
+    // Đọc chuẩn mọi định dạng mốc thời gian ôn tập cũ để không bao giờ bị reset tiến độ
+    function resolveCardDueTime(card) {
+      if (typeof card.dueTimestamp === 'number' && card.dueTimestamp > 0) return card.dueTimestamp;
+      if (typeof card.nextReview === 'number' && card.nextReview > 0) return card.nextReview;
+      if (typeof card.due === 'number' && card.due > 0) return card.due;
+      if (card.dueDate) {
+        const parsed = new Date(card.dueDate).getTime();
+        if (!isNaN(parsed)) return parsed;
+      }
+      return 0; // Thẻ mới chưa học bao giờ
+    }
+
+    function normalizeLoadedCard(rawItem, firebaseKey) {
       if (!rawItem || typeof rawItem !== 'object') return null;
       const zh = rawItem.traditional || rawItem.hanzi || rawItem.chinese || rawItem.word || rawItem.zh || rawItem.front;
       const vi = rawItem.vietnamese || rawItem.meaning || rawItem.vi || rawItem.back;
@@ -458,36 +469,48 @@
 
       return {
         ...rawItem,
-        id: rawItem.id || fallbackKey || Date.now(),
+        _firebaseKey: String(firebaseKey), // Giữ nguyên tên key thật trên Firebase để cập nhật chính xác
+        id: rawItem.id || firebaseKey,
         traditional: zh || '',
         pinyin: rawItem.pinyin || rawItem.py || '',
         vietnamese: vi || '',
-        example: rawItem.example || rawItem.context || ''
+        example: rawItem.example || rawItem.context || '',
+        dueTimestamp: resolveCardDueTime(rawItem)
       };
+    }
+
+    function getCleanCardPayload(card) {
+      const payload = { ...card };
+      delete payload._firebaseKey;
+      // Cập nhật đồng bộ tất cả các trường thời gian có thể tồn tại trong bản cũ
+      payload.dueTimestamp = card.dueTimestamp || Date.now();
+      payload.nextReview = payload.dueTimestamp;
+      return payload;
     }
 
     function flushPendingOfflineChanges() {
       if (!db || !navigator.onLine) return;
 
-      // Đồng bộ thẻ từ vựng thay đổi lúc offline
       if (localStorage.getItem(LS_PENDING_CARDS_SYNC) === '1') {
         const deletedIds = JSON.parse(localStorage.getItem(LS_DELETED_CARD_IDS) || '[]');
-        deletedIds.forEach(delId => {
-          const delRef = (detectedCardNode === '/') ? db.ref('/' + delId) : db.ref(detectedCardNode + '/' + delId);
+        deletedIds.forEach(delKey => {
+          const delRef = (detectedCardNode === '/') ? db.ref('/' + delKey) : db.ref(detectedCardNode + '/' + delKey);
           delRef.remove();
         });
 
-        const cardsObj = {};
-        cards.forEach(card => cardsObj[card.id] = card);
+        const updates = {};
+        cards.forEach(card => {
+          const key = card._firebaseKey || String(card.id);
+          updates[key] = getCleanCardPayload(card);
+        });
         const targetRef = (detectedCardNode === '/') ? db.ref('/') : db.ref(detectedCardNode);
-        targetRef.update(cardsObj).then(() => {
+        targetRef.update(updates).then(() => {
           localStorage.removeItem(LS_PENDING_CARDS_SYNC);
           localStorage.removeItem(LS_DELETED_CARD_IDS);
           updateSyncStatusBanner(`🟢 Đã đồng bộ dữ liệu Offline lên Cloud (${cards.length} thẻ)`);
         });
       }
 
-      // Đồng bộ hội thoại thay đổi lúc offline
       if (localStorage.getItem(LS_PENDING_DIALOGUES_SYNC) === '1') {
         const obj = {};
         dialogues.forEach(d => obj[d.id] = d);
@@ -507,7 +530,6 @@
 
     if (rootRef) {
       rootRef.on('value', (snapshot) => {
-        // Nếu đang có thay đổi offline chưa đẩy lên thì đẩy lên trước, không để cloud đè mất tiến độ offline
         if (localStorage.getItem(LS_PENDING_CARDS_SYNC) === '1') {
           flushPendingOfflineChanges();
           return;
@@ -545,7 +567,7 @@
         updateSyncStatusBanner();
         renderStudyCard();
         renderWordList();
-      }, (err) => {
+      }, () => {
         updateSyncStatusBanner(`📴 Đang dùng bản lưu Offline (${cards.length} thẻ)`);
       });
     }
@@ -570,29 +592,32 @@
     }
 
     function createCard(traditional, pinyin, vietnamese, example) {
+      const newId = Date.now();
       return {
-        id: Date.now(),
+        _firebaseKey: String(newId),
+        id: newId,
         traditional,
         pinyin,
         vietnamese,
         example,
-        dueTimestamp: Date.now()
+        dueTimestamp: newId,
+        nextReview: newId
       };
     }
 
-    function saveCardsToCloud() {
-      saveToLocalCache(); // Luôn lưu ngay vào máy trước
+    // Chỉ cập nhật đúng thẻ vừa thay đổi lên Firebase, không ghi đè toàn bộ mảng
+    function saveSingleCardToCloud(card) {
+      saveToLocalCache();
+      const key = card._firebaseKey || String(card.id);
       if (!db || !navigator.onLine) {
         localStorage.setItem(LS_PENDING_CARDS_SYNC, '1');
         updateSyncStatusBanner();
         return;
       }
 
-      updateSyncStatusBanner('⏳ Đang lưu lên Cloud & máy...');
-      const cardsObj = {};
-      cards.forEach(card => cardsObj[card.id] = card);
-      const targetRef = (detectedCardNode === '/') ? db.ref('/') : db.ref(detectedCardNode);
-      targetRef.update(cardsObj)
+      updateSyncStatusBanner('⏳ Đang lưu tiến độ lên Cloud...');
+      const cardPath = (detectedCardNode === '/') ? ('/' + key) : (detectedCardNode + '/' + key);
+      db.ref(cardPath).update(getCleanCardPayload(card))
         .then(() => updateSyncStatusBanner())
         .catch(() => {
           localStorage.setItem(LS_PENDING_CARDS_SYNC, '1');
@@ -600,19 +625,20 @@
         });
     }
 
-    function deleteCardFromCloud(cardId) {
+    function deleteCardFromCloud(card) {
       saveToLocalCache();
+      const key = card._firebaseKey || String(card.id);
       if (!db || !navigator.onLine) {
         localStorage.setItem(LS_PENDING_CARDS_SYNC, '1');
         const deletedIds = JSON.parse(localStorage.getItem(LS_DELETED_CARD_IDS) || '[]');
-        deletedIds.push(cardId);
+        deletedIds.push(key);
         localStorage.setItem(LS_DELETED_CARD_IDS, JSON.stringify(deletedIds));
         updateSyncStatusBanner();
         return;
       }
 
-      const targetRef = (detectedCardNode === '/') ? db.ref('/' + cardId) : db.ref(detectedCardNode + '/' + cardId);
-      targetRef.remove();
+      const cardPath = (detectedCardNode === '/') ? ('/' + key) : (detectedCardNode + '/' + key);
+      db.ref(cardPath).remove();
     }
 
     function saveDialoguesToCloud() {
@@ -637,10 +663,9 @@
     function getDueCards() {
       const now = Date.now();
       return cards.filter(card => {
-        if (card.dueTimestamp) return card.dueTimestamp <= now;
-        if (card.dueDate) return new Date(card.dueDate + 'T00:00:00').getTime() <= now;
-        return true;
-      }).sort((a, b) => (a.dueTimestamp || 0) - (b.dueTimestamp || 0));
+        const due = resolveCardDueTime(card);
+        return due <= now;
+      }).sort((a, b) => resolveCardDueTime(a) - resolveCardDueTime(b));
     }
 
     function switchTab(tab) {
@@ -663,13 +688,12 @@
       }
     }
 
-    // Lọc lấy riêng phần chữ Hán Phồn thể (loại bỏ Pinyin Latin cũ nếu có)
-   function extractHanziOnly(text) {
-  if (!text) return '';
-  // Chỉ giữ lại chữ Hán Phồn thể và dấu câu tiếng Trung, loại bỏ hoàn toàn cả tiếng Việt có dấu lẫn Pinyin
-  const matches = String(text).match(/[\u4e00-\u9fff\u3400-\u4dbf，。！？、；：「」『』（）…—·]+/g);
-  return matches ? matches.join(' ').trim() : '';
-}
+    // Chỉ giữ lại chữ Hán Phồn thể và dấu câu tiếng Trung, loại bỏ hoàn toàn cả tiếng Việt có dấu lẫn Pinyin
+    function extractHanziOnly(text) {
+      if (!text) return '';
+      const matches = String(text).match(/[\u4e00-\u9fff\u3400-\u4dbf，。！？、；：「」『』（）…—·]+/g);
+      return matches ? matches.join(' ').trim() : '';
+    }
 
     function speakTaiwanese(text, e, onEndCallback) {
       if (e) e.stopPropagation();
@@ -814,17 +838,19 @@
       else if (quality === 4) offset = 1 * DAY;
       else if (quality === 5) offset = 2 * DAY;
 
-      card.dueTimestamp = Date.now() + offset;
+      const nextTime = Date.now() + offset;
+      card.dueTimestamp = nextTime;
+      card.nextReview = nextTime;
       return card;
     }
 
     function handleRating(quality) {
       if (!currentCard) return;
       const updatedCard = updateCardSchedule(currentCard, quality);
-      const index = cards.findIndex(c => c.id === currentCard.id);
-      cards[index] = updatedCard;
+      const index = cards.findIndex(c => c._firebaseKey === currentCard._firebaseKey || c.id === currentCard.id);
+      if (index !== -1) cards[index] = updatedCard;
 
-      saveCardsToCloud();
+      saveSingleCardToCloud(updatedCard);
       isAnswerShown = false;
       userTypedAnswer = '';
       currentCardId = null;
@@ -847,7 +873,8 @@
       const statBox = document.getElementById('statBox');
       const container = document.getElementById('cardContainer');
 
-      statBox.textContent = `Thẻ cần ôn hiện tại: ${dueCards.length} / Tổng số thẻ: ${cards.length}`;
+      const learnedCount = Math.max(0, cards.length - dueCards.length);
+      statBox.textContent = `Cần ôn: ${dueCards.length} • Đã học: ${learnedCount} / Tổng: ${cards.length} thẻ`;
 
       if (dueCards.length === 0) {
         container.innerHTML = `
@@ -1220,8 +1247,8 @@
             <div class="word-vi">${escapeHtml(card.vietnamese || card.meaning)}</div>
           </div>
           <div class="word-actions">
-            <button class="btn-action btn-edit" onclick="editCard(${card.id})">Sửa</button>
-            <button class="btn-action btn-delete" onclick="deleteCard(${card.id})">Xóa</button>
+            <button class="btn-action btn-edit" onclick="editCard('${escapeHtml(card._firebaseKey || card.id)}')">Sửa</button>
+            <button class="btn-action btn-delete" onclick="deleteCard('${escapeHtml(card._firebaseKey || card.id)}')">Xóa</button>
           </div>
         </div>
       `).join('');
@@ -1233,31 +1260,35 @@
       const pinyin = document.getElementById('pinyin').value.trim();
       const vietnamese = document.getElementById('vietnamese').value.trim();
       const example = document.getElementById('example').value.trim();
-      const editId = document.getElementById('editCardId').value;
+      const editKey = document.getElementById('editCardId').value;
 
       if (!traditional || !vietnamese) return;
 
-      if (editId) {
-        const index = cards.findIndex(c => c.id == editId);
+      if (editKey) {
+        const index = cards.findIndex(c => String(c._firebaseKey || c.id) === String(editKey));
         if (index !== -1) {
           cards[index].traditional = traditional;
           cards[index].pinyin = pinyin;
           cards[index].vietnamese = vietnamese;
           cards[index].example = example;
+          saveSingleCardToCloud(cards[index]);
         }
       } else {
-        cards.push(createCard(traditional, pinyin, vietnamese, example));
+        const newCard = createCard(traditional, pinyin, vietnamese, example);
+        cards.push(newCard);
+        saveSingleCardToCloud(newCard);
       }
 
-      saveCardsToCloud();
       resetForm();
+      renderWordList();
+      renderStudyCard();
     });
 
-    function editCard(id) {
-      const card = cards.find(c => c.id == id);
+    function editCard(key) {
+      const card = cards.find(c => String(c._firebaseKey || c.id) === String(key));
       if (!card) return;
 
-      document.getElementById('editCardId').value = card.id;
+      document.getElementById('editCardId').value = card._firebaseKey || card.id;
       document.getElementById('traditional').value = card.traditional || card.word || '';
       document.getElementById('pinyin').value = card.pinyin || '';
       document.getElementById('vietnamese').value = card.vietnamese || card.meaning || '';
@@ -1270,10 +1301,11 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function deleteCard(id) {
+    function deleteCard(key) {
       if (confirm('Bạn có chắc chắn muốn xóa từ này?')) {
-        cards = cards.filter(c => c.id != id);
-        deleteCardFromCloud(id);
+        const targetCard = cards.find(c => String(c._firebaseKey || c.id) === String(key));
+        cards = cards.filter(c => String(c._firebaseKey || c.id) !== String(key));
+        if (targetCard) deleteCardFromCloud(targetCard);
         renderWordList();
         renderStudyCard();
       }
