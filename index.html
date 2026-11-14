@@ -46,7 +46,6 @@
       border-radius: 8px; margin-bottom: 14px; font-weight: bold; color: #a5b4fc; font-size: 14px;
     }
 
-    /* Thanh chọn chế độ xuất hiện thẻ */
     .mode-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
     .mode-btn {
       flex: 1; min-width: 115px; padding: 8px 8px; font-size: 12px; font-weight: bold;
@@ -55,7 +54,6 @@
     }
     .mode-btn.active { background: #312e81; color: #e0e7ff; border-color: var(--primary); }
 
-    /* Thẻ Flashcard Dark Mode */
     .flashcard {
       background: var(--card-bg); border: 1px solid var(--border);
       border-radius: 16px; padding: 28px 22px; text-align: center;
@@ -79,7 +77,6 @@
       box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
     }
 
-    /* Ô gõ kiểm tra ngang */
     .input-row { display: flex; gap: 10px; margin-bottom: 12px; }
     .answer-input {
       flex: 1; padding: 12px 16px; font-size: 16px; background: var(--sub-bg);
@@ -94,7 +91,6 @@
     .flip-hint { font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 6px; display: inline-block; }
     .flip-hint:hover { color: white; }
 
-    /* Hộp so sánh thông minh */
     .compare-box {
       padding: 12px 14px; border-radius: 10px; margin: 14px 0; font-size: 14px; text-align: left; line-height: 1.6;
     }
@@ -107,14 +103,12 @@
     .tok-miss { color: #facc15; border-bottom: 1px dashed #facc15; padding: 0 2px; }
     .tok-stop { color: #94a3b8; }
 
-    /* Mặt sau đáp án chi tiết */
     .back-details { text-align: left; border-top: 1px solid var(--border); padding-top: 18px; margin-top: 16px; }
     .field-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
     .val-zh { font-size: 26px; font-weight: bold; color: #ffffff; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
     .val-pinyin { font-size: 18px; font-weight: bold; color: var(--pinyin); margin-bottom: 14px; }
     .val-vi { font-size: 18px; font-weight: bold; color: var(--vietnamese); margin-bottom: 16px; }
 
-    /* Khung Ví dụ ngữ cảnh */
     .context-box {
       background: var(--sub-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
     }
@@ -133,7 +127,6 @@
     .good { background: #3b82f6; }
     .easy { background: #22c55e; }
 
-    /* Form & Danh sách từ cũ */
     .form-card {
       background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 18px;
     }
@@ -167,7 +160,6 @@
     .btn-edit { background: var(--warning); }
     .btn-delete { background: var(--danger); }
 
-    /* ================= GIAO DIỆN LUYỆN HỘI THOẠI TỪNG LƯỢT ================= */
     .dialog-controls {
       display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;
     }
@@ -265,7 +257,6 @@
 
     <div id="dialogueContainer"></div>
 
-    <!-- Form dán nhanh hội thoại mới -->
     <div class="form-card">
       <h4 style="margin-top:0; color:#a5b4fc;">➕ Thêm đoạn hội thoại mới (Dán trực tiếp từ bài học)</h4>
       <div class="form-group">
@@ -317,7 +308,6 @@
   </div>
 
   <script>
-    // Cấu hình Firebase chuẩn của bạn
     const firebaseConfig = {
       apiKey: "AIzaSyBfIpqmiOwghVsSrNd_TSpS57Cz1O3qKyo",
       authDomain: "my-taiwanese-project.firebaseapp.com",
@@ -331,10 +321,10 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    // Trỏ đúng về nhánh anki_cards chứa toàn bộ dữ liệu từ vựng đã lưu trước đó của bạn
-    const cardsRef = db.ref('anki_cards');
+    const rootRef = db.ref('/');
     const dialoguesRef = db.ref('taiwanese_dialogues');
 
+    let detectedCardNode = 'anki_cards'; // Tự động cập nhật theo tên nhánh cũ thực tế trên Firebase
     let cards = [];
     let currentCard = null;
     let currentCardId = null;
@@ -386,12 +376,60 @@
     let revealedTurns = {};
     let turnTypedAnswers = {};
 
-    cardsRef.on('value', (snapshot) => {
-      const data = snapshot.val();
-      cards = data ? Object.values(data) : [];
-      document.getElementById('syncStatus').textContent = '🟢 Đã đồng bộ Cloud (Laptop 📲 Phone)';
+    // Hàm trích xuất chuẩn hóa từ vựng bất kể tên trường cũ là gì (traditional, hanzi, word, zh...)
+    function normalizeLoadedCard(rawItem, fallbackKey) {
+      if (!rawItem || typeof rawItem !== 'object') return null;
+      const zh = rawItem.traditional || rawItem.hanzi || rawItem.chinese || rawItem.word || rawItem.zh || rawItem.front;
+      const vi = rawItem.vietnamese || rawItem.meaning || rawItem.vi || rawItem.back;
+      if (!zh && !vi) return null;
+
+      return {
+        ...rawItem,
+        id: rawItem.id || fallbackKey || Date.now(),
+        traditional: zh || '',
+        pinyin: rawItem.pinyin || rawItem.py || '',
+        vietnamese: vi || '',
+        example: rawItem.example || rawItem.context || ''
+      };
+    }
+
+    // Quét toàn bộ nhánh gốc trên Firebase để tự động nhận diện kho từ vựng cũ
+    rootRef.on('value', (snapshot) => {
+      const rootData = snapshot.val();
+      let foundCards = [];
+
+      if (rootData && typeof rootData === 'object') {
+        Object.keys(rootData).forEach((key) => {
+          if (key === 'taiwanese_dialogues') return; // Bỏ qua nhánh hội thoại
+
+          const branch = rootData[key];
+          if (branch && typeof branch === 'object') {
+            // Kiểm tra xem bản thân `branch` có phải là 1 thẻ nằm thẳng ở root không
+            const directCard = normalizeLoadedCard(branch, key);
+            if (directCard && (branch.pinyin || branch.traditional || branch.hanzi || branch.word)) {
+              foundCards.push(directCard);
+              detectedCardNode = '/';
+            } else {
+              // Duyệt các phần tử con bên trong nhánh (ví dụ: cards, anki_cards, chinese_cards...)
+              const subItems = Object.entries(branch)
+                .map(([subKey, val]) => normalizeLoadedCard(val, subKey))
+                .filter(Boolean);
+
+              if (subItems.length > 0) {
+                foundCards = foundCards.concat(subItems);
+                detectedCardNode = key;
+              }
+            }
+          }
+        });
+      }
+
+      cards = foundCards;
+      document.getElementById('syncStatus').textContent = `🟢 Đã đồng bộ Cloud (${cards.length} thẻ • nhánh: ${detectedCardNode})`;
       renderStudyCard();
       renderWordList();
+    }, (err) => {
+      document.getElementById('syncStatus').textContent = '🔴 Lỗi quyền đọc Firebase: ' + err.message;
     });
 
     dialoguesRef.on('value', (snapshot) => {
@@ -424,7 +462,13 @@
       document.getElementById('syncStatus').textContent = '⏳ Đang lưu lên Cloud...';
       const cardsObj = {};
       cards.forEach(card => cardsObj[card.id] = card);
-      cardsRef.set(cardsObj);
+      const targetRef = (detectedCardNode === '/') ? db.ref('/') : db.ref(detectedCardNode);
+      targetRef.update(cardsObj);
+    }
+
+    function deleteCardFromCloud(cardId) {
+      const targetRef = (detectedCardNode === '/') ? db.ref('/' + cardId) : db.ref(detectedCardNode + '/' + cardId);
+      targetRef.remove();
     }
 
     function saveDialoguesToCloud() {
@@ -487,7 +531,6 @@
         .replace(/'/g, "&#039;");
     }
 
-    // ================= BỘ CHẤM ĐIỂM THÔNG MINH THEO Ý CHÍNH & TỪ VỰNG CỐT LÕI =================
     const ZH_STOP_WORDS = new Set([
       '的', '了', '啊', '吧', '嗎', '呢', '喔', '呀', '哦', '啦', '嘛',
       '就', '也', '還', '都', '很', '太', '真', '好', '在', '是', '有',
@@ -573,7 +616,6 @@
       `;
     }
 
-    // ================= LOGIC TAB 1: ÔN TẬP THẺ =================
     function setStudyMode(mode) {
       studyMode = mode;
       document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
@@ -769,7 +811,6 @@
       }
     }
 
-    // ================= LOGIC TAB 2: LUYỆN HỘI THOẠI TỪNG LƯỢT =================
     function renderDialogueSelector() {
       const select = document.getElementById('dialogueSelect');
       if (!select) return;
@@ -990,7 +1031,6 @@
       alert('Đã lưu đoạn hội thoại thành công!');
     }
 
-    // ================= LOGIC TAB 3: QUẢN LÝ TỪ VỰNG =================
     function renderWordList() {
       const container = document.getElementById('wordListContainer');
       document.getElementById('totalWordCount').textContent = cards.length;
@@ -1062,7 +1102,7 @@
     function deleteCard(id) {
       if (confirm('Bạn có chắc chắn muốn xóa từ này?')) {
         cards = cards.filter(c => c.id != id);
-        saveCardsToCloud();
+        deleteCardFromCloud(id);
       }
     }
 
