@@ -899,19 +899,21 @@
           interval = Math.max(currentIvl + 1, Math.round(currentIvl * 1.2));
           reps += 1;
           nextOffsetMs = interval * DAY_MS;
-        } else if (rating === 3) {
-          // Good: nhân với Ease Factor hiện tại
-          interval = Math.max(currentIvl + 1, Math.round(currentIvl * easeFactor));
+       } else if (rating === 3) {
+          // Good: interval * EaseFactor * IntervalModifier
+          interval = Math.max(currentIvl + 1, Math.round(currentIvl * easeFactor * ivlMod));
           reps += 1;
-          nextOffsetMs = interval * DAY_MS;
+          nextDue = computeAnkiDayBoundaryTimestamp(interval);
+          label = formatDaysLabel(interval);
         } else if (rating === 4) {
-          // Easy: nhân với Ease Factor * 1.3 (Easy bonus), tăng Ease Factor +0.15
+          // Easy: phải luôn lớn hơn Good ít nhất 1 ngày (chuẩn Anki)
+          const goodIvl = Math.max(currentIvl + 1, Math.round(currentIvl * easeFactor * ivlMod));
           easeFactor = +(easeFactor + 0.15).toFixed(2);
-          interval = Math.max(currentIvl + 2, Math.round(currentIvl * easeFactor * 1.3));
+          interval = Math.max(goodIvl + 1, Math.round(currentIvl * easeFactor * easyBonus * ivlMod));
           reps += 1;
-          nextOffsetMs = interval * DAY_MS;
+          nextDue = computeAnkiDayBoundaryTimestamp(interval);
+          label = formatDaysLabel(interval);
         }
-      }
 
       const nextDue = now + nextOffsetMs;
       return {
