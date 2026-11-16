@@ -39,6 +39,11 @@
 
     .sync-status {
       font-size: 13px; text-align: center; margin-bottom: 12px; font-weight: 600; color: var(--muted);
+      display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .branch-select {
+      background: var(--card-bg); color: #86efac; border: 1px solid var(--border);
+      border-radius: 6px; padding: 2px 6px; font-size: 12px; font-weight: bold; cursor: pointer;
     }
     .stat-box {
       text-align: center; padding: 10px; background: rgba(99, 102, 241, 0.15);
@@ -338,7 +343,7 @@
   </div>
 
   <script>
-    // ================= 1. BỘ NHỚ CỤC BỘ & CHỐNG TRÙNG LẶP =================
+    // ================= 1. BỘ NHỚ CỤC BỘ & QUẢN LÝ NHÁNH DỮ LIỆU =================
     const LS_CARDS_KEY = 'tw_anki_cards_master_v2';
     const LS_NODE_KEY = 'tw_anki_detected_node_master_v2';
     const LS_DIALOGUES_KEY = 'tw_anki_dialogues_master_v2';
@@ -347,6 +352,7 @@
     const LS_PENDING_DIALOGUES_SYNC = 'tw_anki_pending_dialogues_sync_master_v2';
 
     let detectedCardNode = localStorage.getItem(LS_NODE_KEY) || 'anki_cards';
+    let availableBranches = {}; // Lưu tất cả các nhánh tìm thấy trên Firebase (vd: anki_cards, flashcards)
     let cards = [];
     let currentCard = null;
     let currentCardKey = null;
@@ -433,7 +439,7 @@
         console.warn('Lỗi đọc cache cục bộ:', e);
       }
       updateSyncStatusBanner();
-      renderStudyCard();
+      safeRenderStudyCard();
       renderWordList();
       renderDialogueSelector();
       renderDialogueView();
@@ -449,20 +455,44 @@
       }
     }
 
+    function switchFirebaseBranch(branchName) {
+      if (!availableBranches[branchName]) return;
+      detectedCardNode = branchName;
+      cards = deduplicateCards(availableBranches[branchName]);
+      currentCardKey = null;
+      isAnswerShown = false;
+      userTypedAnswer = '';
+      saveToLocalCache();
+      updateSyncStatusBanner();
+      safeRenderStudyCard();
+      renderWordList();
+    }
+
     function updateSyncStatusBanner(extraMsg) {
       const el = document.getElementById('syncStatus');
       if (!el) return;
       const isOnline = navigator.onLine;
       const hasPending = localStorage.getItem(LS_PENDING_CARDS_SYNC) === '1' || localStorage.getItem(LS_PENDING_DIALOGUES_SYNC) === '1';
 
+      const branchNames = Object.keys(availableBranches);
+      let branchSelectorHtml = '';
+      if (branchNames.length > 1) {
+        const opts = branchNames.map(b =>
+          `<option value="${escapeHtml(b)}" ${b === detectedCardNode ? 'selected' : ''}>${escapeHtml(b)} (${availableBranches[b].length} thẻ)</option>`
+        ).join('');
+        branchSelectorHtml = ` • Nhánh: <select class="branch-select" onchange="switchFirebaseBranch(this.value)">${opts}</select>`;
+      } else {
+        branchSelectorHtml = ` • nhánh: ${escapeHtml(detectedCardNode)}`;
+      }
+
       if (!isOnline) {
         el.innerHTML = `📴 <strong>Chế độ Offline</strong> — Đang dùng dữ liệu trên máy (${cards.length} thẻ)${hasPending ? ' • Có thay đổi chờ đồng bộ' : ''}`;
         el.style.color = '#facc15';
       } else if (extraMsg) {
-        el.textContent = extraMsg;
+        el.innerHTML = `<span>${escapeHtml(extraMsg)}</span>${branchSelectorHtml}`;
         el.style.color = '#86efac';
       } else {
-        el.textContent = `🟢 Đã đồng bộ Cloud (${cards.length} thẻ • nhánh: ${detectedCardNode})`;
+        el.innerHTML = `<span>🟢 Đã đồng bộ Cloud (${cards.length} thẻ)</span>${branchSelectorHtml}`;
         el.style.color = '#86efac';
       }
     }
@@ -496,10 +526,19 @@
       console.warn('Khởi tạo Firebase ở chế độ Offline:', err);
     }
 
+    function toSafeNumber(val, fallback) {
+      const n = Number(val);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
     function resolveCardDueTime(card) {
-      if (typeof card.dueTimestamp === 'number' && card.dueTimestamp > 0) return card.dueTimestamp;
-      if (typeof card.nextReview === 'number' && card.nextReview > 0) return card.nextReview;
-      if (typeof card.due === 'number' && card.due > 0) return card.due;
+      if (!card) return 0;
+      const d1 = toSafeNumber(card.dueTimestamp, 0);
+      if (d1 > 0) return d1;
+      const d2 = toSafeNumber(card.nextReview, 0);
+      if (d2 > 0) return d2;
+      const d3 = toSafeNumber(card.due, 0);
+      if (d3 > 0) return d3;
       if (card.dueDate) {
         const parsed = new Date(card.dueDate).getTime();
         if (!isNaN(parsed)) return parsed;
@@ -513,34 +552,36 @@
       const vi = rawItem.vietnamese || rawItem.meaning || rawItem.vi || rawItem.back;
       if (!zh && !vi) return null;
 
+      const intervalNum = toSafeNumber(rawItem.interval, 0);
+      const efNum = Math.max(1.3, toSafeNumber(rawItem.easeFactor, 2.5));
+
       return {
         ...rawItem,
         _firebaseKey: String(firebaseKey),
         id: rawItem.id || firebaseKey,
-        traditional: zh || '',
-        pinyin: rawItem.pinyin || rawItem.py || '',
-        vietnamese: vi || '',
-        example: rawItem.example || rawItem.context || '',
+        traditional: String(zh || ''),
+        pinyin: String(rawItem.pinyin || rawItem.py || ''),
+        vietnamese: String(vi || ''),
+        example: String(rawItem.example || rawItem.context || ''),
         dueTimestamp: resolveCardDueTime(rawItem),
-        // Chuẩn hóa thông số Anki SM-2 nếu thẻ cũ chưa có
-        srsState: rawItem.srsState || ((rawItem.interval || 0) >= 1 ? 'review' : 'new'),
-        srsStep: typeof rawItem.srsStep === 'number' ? rawItem.srsStep : 0,
-        interval: typeof rawItem.interval === 'number' ? rawItem.interval : 0,
-        easeFactor: typeof rawItem.easeFactor === 'number' ? rawItem.easeFactor : 2.5,
-        lapses: typeof rawItem.lapses === 'number' ? rawItem.lapses : 0
+        srsState: rawItem.srsState || (intervalNum >= 1 ? 'review' : 'new'),
+        srsStep: toSafeNumber(rawItem.srsStep, 0),
+        interval: intervalNum,
+        easeFactor: efNum,
+        lapses: toSafeNumber(rawItem.lapses, 0)
       };
     }
 
     function getCleanCardPayload(card) {
       const payload = { ...card };
       delete payload._firebaseKey;
-      payload.dueTimestamp = card.dueTimestamp || Date.now();
+      payload.dueTimestamp = resolveCardDueTime(card) || Date.now();
       payload.nextReview = payload.dueTimestamp;
       payload.srsState = card.srsState || 'new';
-      payload.srsStep = typeof card.srsStep === 'number' ? card.srsStep : 0;
-      payload.interval = typeof card.interval === 'number' ? card.interval : 0;
-      payload.easeFactor = typeof card.easeFactor === 'number' ? card.easeFactor : 2.5;
-      payload.lapses = typeof card.lapses === 'number' ? card.lapses : 0;
+      payload.srsStep = toSafeNumber(card.srsStep, 0);
+      payload.interval = toSafeNumber(card.interval, 0);
+      payload.easeFactor = Math.max(1.3, toSafeNumber(card.easeFactor, 2.5));
+      payload.lapses = toSafeNumber(card.lapses, 0);
       return payload;
     }
 
@@ -592,8 +633,7 @@
         }
 
         const rootData = snapshot.val();
-        let bestBranchName = detectedCardNode;
-        let bestBranchItems = [];
+        availableBranches = {};
 
         if (rootData && typeof rootData === 'object') {
           const directRootCards = Object.entries(rootData)
@@ -602,34 +642,38 @@
             .filter(Boolean);
 
           if (directRootCards.length > 0) {
-            bestBranchName = '/';
-            bestBranchItems = directRootCards;
-          } else {
-            Object.keys(rootData).forEach((key) => {
-              if (key === 'taiwanese_dialogues') return;
-              const branch = rootData[key];
-              if (branch && typeof branch === 'object') {
-                const subItems = Object.entries(branch)
-                  .map(([subKey, val]) => normalizeLoadedCard(val, subKey))
-                  .filter(Boolean);
-
-                if (subItems.length > bestBranchItems.length) {
-                  bestBranchItems = subItems;
-                  bestBranchName = key;
-                }
-              }
-            });
+            availableBranches['/'] = directRootCards;
           }
+
+          Object.keys(rootData).forEach((key) => {
+            if (key === 'taiwanese_dialogues') return;
+            const branch = rootData[key];
+            if (branch && typeof branch === 'object') {
+              const subItems = Object.entries(branch)
+                .map(([subKey, val]) => normalizeLoadedCard(val, subKey))
+                .filter(Boolean);
+
+              if (subItems.length > 0) {
+                availableBranches[key] = subItems;
+              }
+            }
+          });
         }
 
-        if (bestBranchItems.length > 0) {
-          detectedCardNode = bestBranchName;
-          cards = deduplicateCards(bestBranchItems);
+        const branchKeys = Object.keys(availableBranches);
+        if (branchKeys.length > 0) {
+          // Ưu tiên nhánh đã lưu nếu vẫn có dữ liệu, hoặc chọn nhánh nhiều thẻ nhất (anki_cards 48 thẻ)
+          if (availableBranches['anki_cards'] && availableBranches['anki_cards'].length >= (availableBranches[detectedCardNode]?.length || 0)) {
+            detectedCardNode = 'anki_cards';
+          } else if (!availableBranches[detectedCardNode]) {
+            detectedCardNode = branchKeys.sort((a, b) => availableBranches[b].length - availableBranches[a].length)[0];
+          }
+          cards = deduplicateCards(availableBranches[detectedCardNode]);
         }
 
         saveToLocalCache();
         updateSyncStatusBanner();
-        renderStudyCard();
+        safeRenderStudyCard();
         renderWordList();
       }, () => {
         updateSyncStatusBanner(`📴 Đang dùng bản lưu Offline (${cards.length} thẻ)`);
@@ -749,7 +793,7 @@
       if (tab === 'study') {
         document.querySelectorAll('.tab-btn')[0].classList.add('active');
         document.getElementById('studyView').classList.add('active');
-        renderStudyCard();
+        safeRenderStudyCard();
       } else if (tab === 'dialogue') {
         document.querySelectorAll('.tab-btn')[1].classList.add('active');
         document.getElementById('dialogueView').classList.add('active');
@@ -884,7 +928,7 @@
     // ================= 4. THUẬT TOÁN LẶP LẠI CHUẨN ANKI (SM-2) =================
     const ANKI_MINUTE = 60 * 1000;
     const ANKI_DAY = 24 * 60 * ANKI_MINUTE;
-    const ANKI_MAX_INTERVAL_DAYS = 365; // Tối đa 365 ngày
+    const ANKI_MAX_INTERVAL_DAYS = 365;
 
     function formatAnkiDuration(ms) {
       const mins = Math.round(ms / ANKI_MINUTE);
@@ -899,31 +943,24 @@
       return `${years} năm`;
     }
 
-    /**
-     * Tính toán lịch nhắc lại theo thuật toán SM-2 chuẩn của Anki
-     * quality: 0 = Again (Quên), 3 = Hard (Khó), 4 = Good (Tốt), 5 = Easy (Dễ)
-     */
     function calculateAnkiSM2Outcome(card, quality) {
-      let state = card.srsState || ((card.interval || 0) >= 1 ? 'review' : 'new');
-      let step = typeof card.srsStep === 'number' ? card.srsStep : 0;
-      let interval = typeof card.interval === 'number' ? card.interval : 0;
-      let easeFactor = typeof card.easeFactor === 'number' ? card.easeFactor : 2.5;
-      let lapses = typeof card.lapses === 'number' ? card.lapses : 0;
+      const safeInterval = toSafeNumber(card.interval, 0);
+      let state = card.srsState || (safeInterval >= 1 ? 'review' : 'new');
+      let step = toSafeNumber(card.srsStep, 0);
+      let interval = safeInterval;
+      let easeFactor = Math.max(1.3, toSafeNumber(card.easeFactor, 2.5));
+      let lapses = toSafeNumber(card.lapses, 0);
       let delayMs = 1 * ANKI_MINUTE;
 
       if (state === 'new' || state === 'learning') {
-        // Giai đoạn học mới (Learning Steps mặc định: 1m -> 10m -> tốt nghiệp 1 ngày)
         if (quality === 0) {
-          // Again: 1 phút
           state = 'learning';
           step = 0;
           delayMs = 1 * ANKI_MINUTE;
         } else if (quality === 3) {
-          // Hard: 6 phút
           state = 'learning';
           delayMs = 6 * ANKI_MINUTE;
         } else if (quality === 4) {
-          // Good: Bước 0 -> 10 phút; Bước 1 -> Tốt nghiệp 1 ngày
           if (step === 0) {
             state = 'learning';
             step = 1;
@@ -935,14 +972,12 @@
             delayMs = 1 * ANKI_DAY;
           }
         } else if (quality === 5) {
-          // Easy: Tốt nghiệp ngay lên 4 ngày
           state = 'review';
           step = 0;
           interval = 4;
           delayMs = 4 * ANKI_DAY;
         }
       } else if (state === 'relearning') {
-        // Giai đoạn học lại sau khi quên từ đã thuộc (Relearning: 10m -> 1 ngày)
         if (quality === 0) {
           delayMs = 10 * ANKI_MINUTE;
         } else if (quality === 3) {
@@ -957,28 +992,23 @@
           delayMs = interval * ANKI_DAY;
         }
       } else {
-        // Giai đoạn ôn tập dài hạn (Graduated / Review)
         const curInt = Math.max(1, interval);
         if (quality === 0) {
-          // Again: Giảm Ease Factor -0.20, đưa về Relearning (10 phút), reset mốc ngày về 1 ngày
           lapses += 1;
-          easeFactor = Math.max(1.3, +(easeFactor - 0.20).toFixed(2));
+          easeFactor = Math.max(1.3, Number((easeFactor - 0.20).toFixed(2)));
           state = 'relearning';
           step = 0;
           interval = 1;
           delayMs = 10 * ANKI_MINUTE;
         } else if (quality === 3) {
-          // Hard: Interval * 1.2, giảm Ease Factor -0.15
-          easeFactor = Math.max(1.3, +(easeFactor - 0.15).toFixed(2));
+          easeFactor = Math.max(1.3, Number((easeFactor - 0.15).toFixed(2)));
           interval = Math.min(ANKI_MAX_INTERVAL_DAYS, Math.max(curInt + 1, Math.round(curInt * 1.2)));
           delayMs = interval * ANKI_DAY;
         } else if (quality === 4) {
-          // Good: Interval * Ease Factor (2.5)
           interval = Math.min(ANKI_MAX_INTERVAL_DAYS, Math.max(curInt + 1, Math.round(curInt * easeFactor)));
           delayMs = interval * ANKI_DAY;
         } else if (quality === 5) {
-          // Easy: Interval * Ease Factor * 1.3, tăng Ease Factor +0.15
-          easeFactor = +(easeFactor + 0.15).toFixed(2);
+          easeFactor = Number((easeFactor + 0.15).toFixed(2));
           interval = Math.min(ANKI_MAX_INTERVAL_DAYS, Math.max(curInt + 2, Math.round(curInt * easeFactor * 1.3)));
           delayMs = interval * ANKI_DAY;
         }
@@ -1017,7 +1047,7 @@
       currentCardKey = null;
       isAnswerShown = false;
       userTypedAnswer = '';
-      renderStudyCard();
+      safeRenderStudyCard();
     }
 
     function handleRating(quality) {
@@ -1030,17 +1060,29 @@
       isAnswerShown = false;
       userTypedAnswer = '';
       currentCardKey = null;
-      renderStudyCard();
+      safeRenderStudyCard();
     }
 
     function checkTypedAnswer() {
       const inputEl = document.getElementById('userAnswerInput');
       if (inputEl) userTypedAnswer = inputEl.value.trim();
       isAnswerShown = true;
-      renderStudyCard();
+      safeRenderStudyCard();
       if (currentCard) {
         const targetZh = currentCard.traditional || currentCard.word || '';
         speakTaiwanese(targetZh);
+      }
+    }
+
+    function safeRenderStudyCard() {
+      try {
+        renderStudyCard();
+      } catch (err) {
+        console.error('Lỗi hiển thị thẻ:', err);
+        const container = document.getElementById('cardContainer');
+        if (container) {
+          container.innerHTML = `<div class="flashcard"><p style="color:#fca5a5;">Đã tự động khôi phục dữ liệu thẻ. Vui lòng bấm tải lại trang (F5).</p></div>`;
+        }
       }
     }
 
@@ -1064,24 +1106,25 @@
 
       currentCard = dueCards[0];
       const cardKey = String(currentCard._firebaseKey || currentCard.id);
-      const zhText = currentCard.traditional || currentCard.word || '';
-      const pyText = currentCard.pinyin || '';
-      const viText = currentCard.vietnamese || currentCard.meaning || '';
+      const zhText = String(currentCard.traditional || currentCard.word || '');
+      const pyText = String(currentCard.pinyin || '');
+      const viText = String(currentCard.vietnamese || currentCard.meaning || '');
       const exHanziOnly = extractHanziOnly(currentCard.example || '');
 
-      // Dự tính trước nhãn thời gian chuẩn Anki cho 4 nút
       const previewAgain = calculateAnkiSM2Outcome(currentCard, 0).label;
       const previewHard = calculateAnkiSM2Outcome(currentCard, 3).label;
       const previewGood = calculateAnkiSM2Outcome(currentCard, 4).label;
       const previewEasy = calculateAnkiSM2Outcome(currentCard, 5).label;
 
+      const safeInterval = toSafeNumber(currentCard.interval, 0);
+      const safeEf = Math.max(1.3, toSafeNumber(currentCard.easeFactor, 2.5));
       const srsStateMap = {
         new: 'Thẻ mới',
         learning: 'Đang học',
         relearning: 'Học lại',
-        review: `Ôn tập (${currentCard.interval || 1}d)`
+        review: `Ôn tập (${safeInterval || 1}d)`
       };
-      const srsTagText = `${srsStateMap[currentCard.srsState || 'new'] || 'Thẻ mới'} • EF ${((currentCard.easeFactor || 2.5) * 100).toFixed(0)}%`;
+      const srsTagText = `${srsStateMap[currentCard.srsState || 'new'] || 'Thẻ mới'} • EF ${(safeEf * 100).toFixed(0)}%`;
 
       if (currentCardKey !== cardKey) {
         currentCardKey = cardKey;
@@ -1577,7 +1620,7 @@
               <div class="word-zh">${escapeHtml(card.traditional || card.word)}</div>
               <div class="word-py">${escapeHtml(card.pinyin)}</div>
               <div class="word-vi">${escapeHtml(card.vietnamese || card.meaning)}</div>
-              <div class="word-srs-tag">⏱️ ${dueLabel} • Chu kỳ: ${card.interval || 0} ngày</div>
+              <div class="word-srs-tag">⏱️ ${dueLabel} • Chu kỳ: ${toSafeNumber(card.interval, 0)} ngày</div>
             </div>
             <div class="word-actions">
               <button class="btn-action btn-edit" onclick="editCard('${escapeHtml(card._firebaseKey || card.id)}')">Sửa</button>
@@ -1615,7 +1658,7 @@
 
       resetForm();
       renderWordList();
-      renderStudyCard();
+      safeRenderStudyCard();
     });
 
     function editCard(key) {
@@ -1641,7 +1684,7 @@
         cards = cards.filter(c => String(c._firebaseKey || c.id) !== String(key));
         if (targetCard) deleteCardFromCloud(targetCard);
         renderWordList();
-        renderStudyCard();
+        safeRenderStudyCard();
       }
     }
 
