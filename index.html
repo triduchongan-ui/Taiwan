@@ -1,1704 +1,2998 @@
 <!DOCTYPE html>
+
 <html lang="zh-TW">
+
 <head>
+
   <meta charset="UTF-8">
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Anki Taiwanese Chinese - Phản Xạ Phòng Lab</title>
+
   <style>
+
     :root {
+
       --bg: #181c24;
+
       --card-bg: #222733;
+
       --sub-bg: #1b202b;
+
       --primary: #6366f1;
+
       --primary-hover: #4f46e5;
+
       --text: #f8fafc;
+
       --muted: #94a3b8;
+
       --pinyin: #facc15;
+
       --vietnamese: #22c55e;
+
       --border: #334155;
+
       --danger: #ef4444;
+
       --warning: #d97706;
+
     }
+
     body {
+
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", Roboto, sans-serif;
+
       background-color: var(--bg);
+
       color: var(--text);
+
       max-width: 660px;
+
       margin: 0 auto;
+
       padding: 20px;
+
     }
+
     .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+
     button.tab-btn {
+
       flex: 1; padding: 12px 8px; border: 1px solid var(--border);
+
       background: var(--card-bg); color: var(--muted); cursor: pointer;
+
       border-radius: 10px; font-weight: bold; font-size: 14px; transition: all 0.2s;
+
     }
+
     button.tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
     .view { display: none; }
+
     .view.active { display: block; }
 
+
+
     .sync-status {
+
       font-size: 13px; text-align: center; margin-bottom: 12px; font-weight: 600; color: var(--muted);
-      display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap;
+
     }
-    .branch-select {
-      background: var(--card-bg); color: #86efac; border: 1px solid var(--border);
-      border-radius: 6px; padding: 2px 6px; font-size: 12px; font-weight: bold; cursor: pointer;
-    }
+
     .stat-box {
+
       text-align: center; padding: 10px; background: rgba(99, 102, 241, 0.15);
+
       border: 1px solid rgba(99, 102, 241, 0.3);
+
       border-radius: 8px; margin-bottom: 14px; font-weight: bold; color: #a5b4fc; font-size: 14px;
+
     }
+
+
 
     .mode-bar { display: flex; gap: 8px; margin-bottom: 14px; }
+
     .mode-btn {
+
       flex: 1; padding: 9px 8px; font-size: 12px; font-weight: bold;
+
       border-radius: 8px; border: 1px solid var(--border); background: var(--sub-bg);
+
       color: var(--muted); cursor: pointer; transition: all 0.2s;
+
     }
+
     .mode-btn.active { background: #312e81; color: #e0e7ff; border-color: var(--primary); }
 
+
+
     .flashcard {
+
       background: var(--card-bg); border: 1px solid var(--border);
+
       border-radius: 16px; padding: 28px 22px; text-align: center;
+
       box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
+
       margin-bottom: 18px;
+
     }
-    .card-meta-row {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 8px;
-    }
+
     .mode-badge {
+
       display: inline-block; font-size: 11px; font-weight: bold; padding: 4px 10px;
-      border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px;
+
+      border-radius: 999px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;
+
     }
-    .srs-badge {
-      display: inline-block; font-size: 11px; font-weight: 600; padding: 4px 9px;
-      border-radius: 999px; background: rgba(148, 163, 184, 0.14); color: #cbd5e1;
-      border: 1px solid var(--border);
-    }
+
     .badge-zh { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); }
+
     .badge-vi { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); }
+
     .badge-audio { background: rgba(250, 204, 21, 0.2); color: #fde047; border: 1px solid rgba(250, 204, 21, 0.4); }
 
+
+
     .front-prompt-zh { font-size: 32px; font-weight: bold; color: #ffffff; margin-bottom: 18px; line-height: 1.4; }
+
     .front-prompt-vi { font-size: 22px; font-weight: bold; color: var(--vietnamese); margin-bottom: 18px; line-height: 1.5; }
+
     .front-prompt-audio { margin-bottom: 18px; }
+
     .big-audio-btn {
+
       background: #312e81; border: 2px solid var(--primary); color: white;
+
       border-radius: 50%; width: 64px; height: 64px; font-size: 28px; cursor: pointer;
+
       box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+
     }
+
+
 
     .input-row { display: flex; gap: 10px; margin-bottom: 12px; }
+
     .answer-input {
+
       flex: 1; padding: 12px 16px; font-size: 16px; background: var(--sub-bg);
+
       color: white; border: 1px solid var(--border); border-radius: 10px; outline: none;
+
     }
+
     .answer-input:focus { border-color: var(--primary); }
+
     .btn-check {
+
       padding: 12px 20px; background: var(--primary); color: white; border: none;
+
       border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer;
+
     }
+
+
 
     .flip-hint { font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 6px; display: inline-block; }
+
     .flip-hint:hover { color: white; }
 
+
+
     .compare-box {
+
       padding: 12px 14px; border-radius: 10px; margin: 14px 0; font-size: 14px; text-align: left; line-height: 1.6;
+
     }
+
     .compare-pass { background: rgba(34, 197, 94, 0.14); border: 1px solid rgba(34, 197, 94, 0.45); color: #dcfce7; }
+
     .compare-partial { background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(245, 158, 11, 0.45); color: #fef3c7; }
+
     .compare-fail { background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.45); color: #fee2e2; }
+
     .compare-title { font-weight: bold; font-size: 14px; margin-bottom: 6px; display: flex; justify-content: space-between; }
+
     .compare-line { font-size: 13px; margin-top: 4px; color: #cbd5e1; }
+
     .tok-hit { color: #4ade80; font-weight: bold; background: rgba(34, 197, 94, 0.18); padding: 1px 3px; border-radius: 4px; }
+
     .tok-miss { color: #facc15; border-bottom: 1px dashed #facc15; padding: 0 2px; }
+
     .tok-stop { color: #94a3b8; }
 
+
+
     .back-details { text-align: left; border-top: 1px solid var(--border); padding-top: 18px; margin-top: 16px; }
+
     .field-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+
     .val-zh { font-size: 26px; font-weight: bold; color: #ffffff; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+
     .val-pinyin { font-size: 18px; font-weight: bold; color: var(--pinyin); margin-bottom: 14px; }
+
     .val-vi { font-size: 18px; font-weight: bold; color: var(--vietnamese); margin-bottom: 16px; }
 
+
+
     .context-box {
+
       background: var(--sub-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+
     }
+
     .context-header {
+
       display: flex; justify-content: space-between; align-items: center;
+
       color: #38bdf8; font-size: 13px; font-weight: bold; margin-bottom: 8px;
+
     }
+
     .context-zh { font-size: 17px; color: #f1f5f9; font-weight: 600; line-height: 1.5; }
 
+
+
     .icon-audio { background: transparent; border: none; color: #38bdf8; font-size: 18px; cursor: pointer; padding: 3px 5px; }
+
     .icon-mini-btn {
+
       background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border);
+
       color: #cbd5e1; font-size: 12px; cursor: pointer; padding: 3px 7px; border-radius: 5px;
+
     }
+
     .icon-mini-btn:hover { background: rgba(255, 255, 255, 0.14); color: white; }
+
     .icon-mini-del:hover { background: rgba(239, 68, 68, 0.25); border-color: var(--danger); color: #fca5a5; }
 
+
+
     .rating-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .rate-btn { padding: 12px 6px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; font-size: 14px; line-height: 1.35; }
-    .rate-btn small { font-weight: 500; opacity: 0.92; font-size: 12px; }
+
+    .rate-btn { padding: 12px 6px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; font-size: 14px; }
+
     .again { background: #ef4444; }
+
     .hard { background: #f97316; }
+
     .good { background: #3b82f6; }
+
     .easy { background: #22c55e; }
 
+
+
     .form-card {
+
       background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 18px;
+
     }
+
     .form-group { margin-bottom: 14px; }
+
     label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #cbd5e1; }
+
     input[type="text"], textarea, select {
+
       width: 100%; padding: 10px 12px; border: 1px solid var(--border); background: var(--sub-bg);
+
       color: white; border-radius: 8px; box-sizing: border-box; font-size: 14px;
+
     }
+
     .btn-submit {
+
       width: 100%; padding: 12px; background: var(--primary);
+
       color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: bold;
+
     }
+
     .btn-cancel {
+
       width: 100%; padding: 10px; background: #475569;
+
       color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: 8px;
+
     }
+
     .word-list-section { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+
     .word-list-title { font-size: 17px; font-weight: bold; margin-bottom: 14px; color: #a5b4fc; }
+
     .word-item {
+
       background: var(--card-bg); border: 1px solid var(--border);
+
       border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+
       display: flex; justify-content: space-between; align-items: center;
+
     }
+
     .word-info { flex: 1; padding-right: 10px; }
+
     .word-zh { font-weight: bold; color: white; font-size: 17px; }
+
     .word-py { color: var(--pinyin); font-size: 13px; }
+
     .word-vi { color: var(--vietnamese); font-size: 14px; }
-    .word-srs-tag { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
     .word-actions { display: flex; gap: 6px; }
+
     .btn-action { padding: 6px 10px; border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; font-weight: bold; }
+
     .btn-edit { background: var(--warning); }
+
     .btn-delete { background: var(--danger); }
 
+
+
     .dialog-controls {
+
       display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;
+
     }
+
     .btn-pill {
+
       padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
+
       background: var(--card-bg); color: var(--text); font-size: 13px; font-weight: bold; cursor: pointer;
+
     }
+
     .btn-pill.active { background: #059669; border-color: #10b981; color: white; }
+
     .btn-pill-primary { background: var(--primary); border-color: var(--primary); color: white; }
 
+
+
     .chat-box {
+
       background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px;
+
       padding: 18px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 14px;
+
     }
+
     .chat-header {
+
       display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+
       border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 4px;
+
     }
+
     .chat-title { font-weight: bold; font-size: 16px; color: #a5b4fc; flex: 1; }
+
     .chat-header-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
+
+
     .bubble-row { display: flex; flex-direction: column; max-width: 94%; }
+
     .bubble-prof { align-self: flex-start; }
+
     .bubble-you { align-self: flex-end; }
 
+
+
     .speaker-tag { font-size: 11px; font-weight: bold; margin-bottom: 4px; color: var(--muted); }
+
     .bubble-you .speaker-tag { text-align: right; color: #38bdf8; }
 
+
+
     .bubble {
+
       padding: 12px 14px; border-radius: 14px; position: relative; line-height: 1.5;
+
     }
+
     .bubble-prof .bubble {
+
       background: var(--sub-bg); border: 1px solid var(--border); border-top-left-radius: 4px;
+
     }
+
     .bubble-you .bubble {
+
       background: rgba(99, 102, 241, 0.18); border: 1px solid rgba(99, 102, 241, 0.45); border-top-right-radius: 4px;
+
     }
+
+
 
     .bubble-toolbar {
+
       display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+
     }
+
+
 
     .b-zh { font-size: 17px; font-weight: bold; color: #ffffff; margin-bottom: 4px; }
+
     .b-py { font-size: 13px; color: var(--pinyin); margin-bottom: 4px; }
+
     .b-vi { font-size: 13px; color: #cbd5e1; font-style: italic; }
 
+
+
     .turn-edit-box {
+
       background: rgba(15, 23, 42, 0.85); border: 1px solid var(--primary);
+
       border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 260px;
+
     }
+
     .turn-edit-box input, .turn-edit-box select {
+
       padding: 7px 10px; font-size: 13px;
+
     }
+
+
 
     .roleplay-mask {
+
       background: rgba(15, 23, 42, 0.7); border: 1px dashed #6366f1; border-radius: 10px;
+
       padding: 10px; margin-top: 8px;
+
     }
+
     .roleplay-input-row { display: flex; gap: 6px; margin-top: 6px; }
+
     .roleplay-input {
+
       flex: 1; padding: 9px 11px; font-size: 14px; background: var(--bg);
+
       color: white; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;
+
     }
+
     .btn-reveal-turn {
+
       margin-top: 8px; padding: 6px 12px; font-size: 12px; background: var(--primary);
+
       color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+
     }
+
     .progress-hint {
+
       text-align: center; font-size: 12px; color: var(--muted); padding-top: 6px; border-top: 1px dashed var(--border);
+
     }
+
   </style>
 
+
+
   <!-- Firebase App & Realtime Database SDK -->
+
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 </head>
+
 <body>
 
+
+
   <div class="tabs">
+
     <button class="tab-btn active" onclick="switchTab('study')">Ôn tập thẻ</button>
+
     <button class="tab-btn" onclick="switchTab('dialogue')">💬 Luyện Hội Thoại</button>
+
     <button class="tab-btn" onclick="switchTab('add')">Thêm / Quản lý</button>
+
   </div>
+
+
 
   <div class="sync-status" id="syncStatus">🔄 Đang tải tiến độ học...</div>
 
+
+
   <!-- ================= TAB 1: ÔN TẬP THẺ ================= -->
+
   <div id="studyView" class="view active">
+
     <div id="statBox" class="stat-box">Đang tải dữ liệu...</div>
 
+
+
     <div class="mode-bar">
+
       <button class="mode-btn active" id="mode-vi2zh" onclick="setStudyMode('vi2zh')">🇻🇳→🇹🇼 Gõ Phồn thể</button>
+
       <button class="mode-btn" id="mode-zh2vi" onclick="setStudyMode('zh2vi')">🇹🇼→🇻🇳 Đọc hiểu</button>
+
       <button class="mode-btn" id="mode-audio" onclick="setStudyMode('audio')">🎧 Nghe phản xạ</button>
+
     </div>
+
+
 
     <div id="cardContainer"></div>
+
   </div>
 
+
+
   <!-- ================= TAB 2: LUYỆN HỘI THOẠI TỪNG BƯỚC ================= -->
+
   <div id="dialogueView" class="view">
+
     <div class="dialog-controls">
+
       <select id="dialogueSelect" onchange="selectDialogue(this.value)" style="flex:1; min-width: 180px;"></select>
+
       <button class="btn-pill" id="roleplayToggleBtn" onclick="toggleRoleplayMode()">🎭 Đóng vai: TẮT</button>
+
       <button class="btn-pill btn-pill-primary" onclick="playFullDialogue()">🔊 Nghe cả đoạn</button>
+
     </div>
+
+
 
     <div id="dialogueContainer"></div>
 
+
+
     <div class="form-card" id="dialogueFormCard">
+
       <h4 id="dialogFormTitle" style="margin-top:0; color:#a5b4fc;">➕ Thêm đoạn hội thoại mới (Dán trực tiếp từ bài học)</h4>
+
       <input type="hidden" id="editDialogueId" value="">
+
       <div class="form-group">
+
         <label for="dialogTitle">Tên chủ đề hội thoại:</label>
+
         <input type="text" id="dialogTitle" placeholder="vd: Ngày 2 - Báo cáo lỗi phần mềm với Giáo sư">
+
       </div>
+
       <div class="form-group">
+
         <label for="dialogRawText">Nội dung hội thoại (mỗi lượt 1 dòng bắt đầu bằng "- Bạn:" hoặc "- Giáo sư:"):</label>
+
         <textarea id="dialogRawText" rows="6" placeholder="- Bạn: 老師，剛才我在執行程式的時候，系統一直報錯。Lǎoshī, gāngcái wǒ zài zhíxíng chéngshì de shíhòu, xìtǒng yīzhí bàocuò.(Thưa thầy, vừa nãy lúc em chạy chương trình thì hệ thống cứ báo lỗi liên tục ạ.)
-- Giáo sư: 是什麼錯誤？你有先檢查一下嗎？Shì shénme cuòwù? Nǐ yǒu xiān jiǎnchá yīxià ma?(Lỗi gì vậy? Em đã kiểm tra qua trước chưa?)"></textarea>
+
+Giáo sư: 是什麼錯誤？你有先檢查一下嗎？Shì shénme cuòwù? Nǐ yǒu xiān jiǎnchá yīxià ma?(Lỗi gì vậy? Em đã kiểm tra qua trước chưa?)"></textarea>
       </div>
+
       <button type="button" id="saveDialogBtn" class="btn-submit" onclick="saveParsedDialogue()">Lưu hội thoại (Offline & Cloud)</button>
+
       <button type="button" id="cancelEditDialogBtn" class="btn-cancel" style="display:none;" onclick="resetDialogueForm()">Hủy chỉnh sửa</button>
+
     </div>
+
   </div>
+
+
 
   <!-- ================= TAB 3: THÊM / QUẢN LÝ TỪ VỰNG ================= -->
+
   <div id="addView" class="view">
+
     <div class="form-card">
+
       <form id="addCardForm">
+
         <h3 id="formTitle" style="margin-top:0;">Thêm từ vựng mới</h3>
+
         <input type="hidden" id="editCardId" value="">
+
         
+
         <div class="form-group">
+
           <label for="traditional">Chữ Phồn thể:</label>
+
           <input type="text" id="traditional" placeholder="vd: 電腦" required>
+
         </div>
+
         <div class="form-group">
+
           <label for="pinyin">Pinyin:</label>
+
           <input type="text" id="pinyin" placeholder="vd: diànnǎo" required>
+
         </div>
+
         <div class="form-group">
+
           <label for="vietnamese">Nghĩa tiếng Việt:</label>
+
           <input type="text" id="vietnamese" placeholder="vd: Máy tính" required>
+
         </div>
+
         <div class="form-group">
+
           <label for="example">Ví dụ ngữ cảnh (Chỉ cần dán chữ Phồn thể):</label>
+
           <textarea id="example" rows="2" placeholder="vd: 請教授看一下我的螢幕"></textarea>
+
         </div>
+
+
 
         <button type="submit" id="submitBtn" class="btn-submit">Lưu vào bộ thẻ (Offline & Cloud)</button>
+
         <button type="button" id="cancelEditBtn" class="btn-cancel" style="display:none;" onclick="resetForm()">Hủy sửa</button>
+
       </form>
+
     </div>
+
+
 
     <div class="word-list-section">
+
       <div class="word-list-title">📋 Danh sách từ đã lưu (<span id="totalWordCount">0</span>)</div>
+
       <div id="wordListContainer"></div>
+
     </div>
+
   </div>
 
+
+
   <script>
-    // ================= 1. BỘ NHỚ CỤC BỘ & QUẢN LÝ NHÁNH DỮ LIỆU =================
+
+    // ================= 1. BỘ NHỚ CỤC BỘ & CHỐNG TRÙNG LẶP =================
+
     const LS_CARDS_KEY = 'tw_anki_cards_master_v2';
+
     const LS_NODE_KEY = 'tw_anki_detected_node_master_v2';
+
     const LS_DIALOGUES_KEY = 'tw_anki_dialogues_master_v2';
+
     const LS_PENDING_CARDS_SYNC = 'tw_anki_pending_cards_sync_master_v2';
+
     const LS_DELETED_CARD_IDS = 'tw_anki_deleted_card_ids_master_v2';
+
     const LS_PENDING_DIALOGUES_SYNC = 'tw_anki_pending_dialogues_sync_master_v2';
 
+
+
     let detectedCardNode = localStorage.getItem(LS_NODE_KEY) || 'anki_cards';
-    let availableBranches = {}; // Lưu tất cả các nhánh tìm thấy trên Firebase (vd: anki_cards, flashcards)
+
     let cards = [];
+
     let currentCard = null;
+
     let currentCardKey = null;
+
     let studyMode = 'vi2zh';
+
     let isAnswerShown = false;
+
     let userTypedAnswer = '';
 
+
+
     const defaultDialogue = {
+
       id: 1700000000002,
+
       title: "Ngày 2 - Báo cáo lỗi phần mềm với Giáo sư",
+
       turns: [
+
         {
+
           speaker: "Bạn",
+
           zh: "老師，剛才我在執行程式的時候，系統一直報錯。",
+
           pinyin: "Lǎoshī, gāngcái wǒ zài zhíxíng chéngshì de shíhòu, xìtǒng yīzhí bàocuò.",
+
           vi: "Thưa thầy, vừa nãy lúc em chạy chương trình thì hệ thống cứ báo lỗi liên tục ạ."
+
         },
+
         {
+
           speaker: "Giáo sư",
+
           zh: "是什麼錯誤？你有先檢查一下嗎？",
+
           pinyin: "Shì shénme cuòwù? Nǐ yǒu xiān jiǎnchá yīxià ma?",
+
           vi: "Lỗi gì vậy? Em đã kiểm tra qua trước chưa?"
+
         },
+
         {
+
           speaker: "Bạn",
+
           zh: "應該是版本不相容，而且顯示卡的記憶體也不足。我重新開機過了，但還是不行。",
+
           pinyin: "Yīnggāi shì bǎnběn bù xiāngróng, érqiě xiǎnshìkǎ de jìyìtǐ yě bùzú. Wǒ chóngxīn kāijī guò le, dàn háishì bùxíng.",
+
           vi: "Chắc là do phiên bản không tương thích, với lại bộ nhớ card màn hình cũng không đủ ạ. Em đã khởi động lại máy rồi nhưng vẫn không được."
+
         },
+
         {
+
           speaker: "Giáo sư",
+
           zh: "好，你把錯誤畫面截圖寄給我，順便把資料先備份起來。",
+
           pinyin: "Hǎo, nǐ bǎ cuòwù huàmiàn jiétú jì gěi wǒ, shùnbiàn bǎ zīliào xiān bèifèn qǐlái.",
+
           vi: "Được, em chụp màn hình chỗ báo lỗi gửi cho thầy, tiện thể sao lưu dữ liệu trước đi nhé."
+
         },
+
         {
+
           speaker: "Bạn",
+
           zh: "好的，我馬上處理，也會順便更新一下套件。",
+
           pinyin: "Hǎo de, wǒ mǎshàng chǔlǐ, yě huì shùnbiàn gēngxīn yīxià tàojiàn.",
+
           vi: "Dạ vâng, em xử lý ngay đây ạ, em cũng sẽ tiện thể cập nhật lại các gói thư viện luôn."
+
         }
+
       ]
+
     };
 
+
+
     let dialogues = [defaultDialogue];
+
     let selectedDialogueId = defaultDialogue.id;
+
     let isRoleplayMode = false;
+
     let revealedTurns = {};
+
     let turnTypedAnswers = {};
+
     let editingTurnIndex = null;
 
+
+
     function deduplicateCards(cardList) {
+
       const map = new Map();
+
       cardList.forEach(c => {
+
         const normZh = String(c.traditional || '').trim();
+
         const dedupKey = normZh || String(c._firebaseKey || c.id);
+
         if (!map.has(dedupKey)) {
+
           map.set(dedupKey, c);
+
         } else {
+
           const existing = map.get(dedupKey);
+
           if (resolveCardDueTime(c) > resolveCardDueTime(existing)) {
+
             map.set(dedupKey, c);
+
           }
+
         }
+
       });
+
       return Array.from(map.values());
+
     }
+
+
 
     function loadFromLocalCache() {
+
       try {
+
         const cachedCards = localStorage.getItem(LS_CARDS_KEY);
+
         if (cachedCards) {
+
           cards = deduplicateCards(JSON.parse(cachedCards) || []);
+
         }
+
         const cachedDialogues = localStorage.getItem(LS_DIALOGUES_KEY);
+
         if (cachedDialogues) {
+
           const parsedD = JSON.parse(cachedDialogues);
+
           if (Array.isArray(parsedD) && parsedD.length > 0) {
+
             dialogues = parsedD;
+
             selectedDialogueId = dialogues[0].id;
+
           }
+
         }
+
       } catch (e) {
+
         console.warn('Lỗi đọc cache cục bộ:', e);
+
       }
+
       updateSyncStatusBanner();
-      safeRenderStudyCard();
+
+      renderStudyCard();
+
       renderWordList();
+
       renderDialogueSelector();
+
       renderDialogueView();
+
     }
+
+
 
     function saveToLocalCache() {
+
       try {
+
         localStorage.setItem(LS_CARDS_KEY, JSON.stringify(cards));
+
         localStorage.setItem(LS_NODE_KEY, detectedCardNode);
+
         localStorage.setItem(LS_DIALOGUES_KEY, JSON.stringify(dialogues));
+
       } catch (e) {
+
         console.warn('Lỗi lưu cache cục bộ:', e);
+
       }
+
     }
 
-    function switchFirebaseBranch(branchName) {
-      if (!availableBranches[branchName]) return;
-      detectedCardNode = branchName;
-      cards = deduplicateCards(availableBranches[branchName]);
-      currentCardKey = null;
-      isAnswerShown = false;
-      userTypedAnswer = '';
-      saveToLocalCache();
-      updateSyncStatusBanner();
-      safeRenderStudyCard();
-      renderWordList();
-    }
+
 
     function updateSyncStatusBanner(extraMsg) {
+
       const el = document.getElementById('syncStatus');
+
       if (!el) return;
+
       const isOnline = navigator.onLine;
+
       const hasPending = localStorage.getItem(LS_PENDING_CARDS_SYNC) === '1' || localStorage.getItem(LS_PENDING_DIALOGUES_SYNC) === '1';
 
-      const branchNames = Object.keys(availableBranches);
-      let branchSelectorHtml = '';
-      if (branchNames.length > 1) {
-        const opts = branchNames.map(b =>
-          `<option value="${escapeHtml(b)}" ${b === detectedCardNode ? 'selected' : ''}>${escapeHtml(b)} (${availableBranches[b].length} thẻ)</option>`
-        ).join('');
-        branchSelectorHtml = ` • Nhánh: <select class="branch-select" onchange="switchFirebaseBranch(this.value)">${opts}</select>`;
-      } else {
-        branchSelectorHtml = ` • nhánh: ${escapeHtml(detectedCardNode)}`;
-      }
+
 
       if (!isOnline) {
+
         el.innerHTML = `📴 <strong>Chế độ Offline</strong> — Đang dùng dữ liệu trên máy (${cards.length} thẻ)${hasPending ? ' • Có thay đổi chờ đồng bộ' : ''}`;
+
         el.style.color = '#facc15';
+
       } else if (extraMsg) {
-        el.innerHTML = `<span>${escapeHtml(extraMsg)}</span>${branchSelectorHtml}`;
+
+        el.textContent = extraMsg;
+
         el.style.color = '#86efac';
+
       } else {
-        el.innerHTML = `<span>🟢 Đã đồng bộ Cloud (${cards.length} thẻ)</span>${branchSelectorHtml}`;
+
+        el.textContent = `🟢 Đã đồng bộ Cloud (${cards.length} thẻ • nhánh: ${detectedCardNode})`;
+
         el.style.color = '#86efac';
+
       }
+
     }
+
+
 
     loadFromLocalCache();
 
+
+
     // ================= 2. KẾT NỐI FIREBASE =================
+
     const firebaseConfig = {
+
       apiKey: "AIzaSyBfIpqmiOwghVsSrNd_TSpS57Cz1O3qKyo",
+
       authDomain: "my-taiwanese-project.firebaseapp.com",
+
       databaseURL: "https://my-taiwanese-project-default-rtdb.firebaseio.com",
+
       projectId: "my-taiwanese-project",
+
       storageBucket: "my-taiwanese-project.firebasestorage.app",
+
       messagingSenderId: "1000055620120",
+
       appId: "1:1000055620120:web:1fa8c1f96f77c2314c796d",
+
       measurementId: "G-JJ6BKYJMBY"
+
     };
 
+
+
     let db = null;
+
     let rootRef = null;
+
     let dialoguesRef = null;
 
+
+
     try {
+
       if (typeof firebase !== 'undefined') {
+
         firebase.initializeApp(firebaseConfig);
+
         db = firebase.database();
+
         rootRef = db.ref('/');
+
         dialoguesRef = db.ref('taiwanese_dialogues');
+
       }
+
     } catch (err) {
+
       console.warn('Khởi tạo Firebase ở chế độ Offline:', err);
+
     }
 
-    function toSafeNumber(val, fallback) {
-      const n = Number(val);
-      return Number.isFinite(n) ? n : fallback;
-    }
+
 
     function resolveCardDueTime(card) {
-      if (!card) return 0;
-      const d1 = toSafeNumber(card.dueTimestamp, 0);
-      if (d1 > 0) return d1;
-      const d2 = toSafeNumber(card.nextReview, 0);
-      if (d2 > 0) return d2;
-      const d3 = toSafeNumber(card.due, 0);
-      if (d3 > 0) return d3;
+
+      if (typeof card.dueTimestamp === 'number' && card.dueTimestamp > 0) return card.dueTimestamp;
+
+      if (typeof card.nextReview === 'number' && card.nextReview > 0) return card.nextReview;
+
+      if (typeof card.due === 'number' && card.due > 0) return card.due;
+
       if (card.dueDate) {
+
         const parsed = new Date(card.dueDate).getTime();
+
         if (!isNaN(parsed)) return parsed;
+
       }
+
       return 0;
+
     }
+
+
 
     function normalizeLoadedCard(rawItem, firebaseKey) {
+
       if (!rawItem || typeof rawItem !== 'object') return null;
+
       const zh = rawItem.traditional || rawItem.hanzi || rawItem.chinese || rawItem.word || rawItem.zh || rawItem.front;
+
       const vi = rawItem.vietnamese || rawItem.meaning || rawItem.vi || rawItem.back;
+
       if (!zh && !vi) return null;
 
-      const intervalNum = toSafeNumber(rawItem.interval, 0);
-      const efNum = Math.max(1.3, toSafeNumber(rawItem.easeFactor, 2.5));
+
 
       return {
+
         ...rawItem,
+
         _firebaseKey: String(firebaseKey),
+
         id: rawItem.id || firebaseKey,
-        traditional: String(zh || ''),
-        pinyin: String(rawItem.pinyin || rawItem.py || ''),
-        vietnamese: String(vi || ''),
-        example: String(rawItem.example || rawItem.context || ''),
-        dueTimestamp: resolveCardDueTime(rawItem),
-        srsState: rawItem.srsState || (intervalNum >= 1 ? 'review' : 'new'),
-        srsStep: toSafeNumber(rawItem.srsStep, 0),
-        interval: intervalNum,
-        easeFactor: efNum,
-        lapses: toSafeNumber(rawItem.lapses, 0)
+
+        traditional: zh || '',
+
+        pinyin: rawItem.pinyin || rawItem.py || '',
+
+        vietnamese: vi || '',
+
+        example: rawItem.example || rawItem.context || '',
+
+        dueTimestamp: resolveCardDueTime(rawItem)
+
       };
+
     }
+
+
 
     function getCleanCardPayload(card) {
+
       const payload = { ...card };
+
       delete payload._firebaseKey;
-      payload.dueTimestamp = resolveCardDueTime(card) || Date.now();
+
+      payload.dueTimestamp = card.dueTimestamp || Date.now();
+
       payload.nextReview = payload.dueTimestamp;
-      payload.srsState = card.srsState || 'new';
-      payload.srsStep = toSafeNumber(card.srsStep, 0);
-      payload.interval = toSafeNumber(card.interval, 0);
-      payload.easeFactor = Math.max(1.3, toSafeNumber(card.easeFactor, 2.5));
-      payload.lapses = toSafeNumber(card.lapses, 0);
+
       return payload;
+
     }
+
+
 
     function flushPendingOfflineChanges() {
+
       if (!db || !navigator.onLine) return;
 
+
+
       if (localStorage.getItem(LS_PENDING_CARDS_SYNC) === '1') {
+
         const deletedIds = JSON.parse(localStorage.getItem(LS_DELETED_CARD_IDS) || '[]');
+
         deletedIds.forEach(delKey => {
+
           const delRef = (detectedCardNode === '/') ? db.ref('/' + delKey) : db.ref(detectedCardNode + '/' + delKey);
+
           delRef.remove();
+
         });
+
+
 
         const updates = {};
+
         cards.forEach(card => {
+
           const key = card._firebaseKey || String(card.id);
+
           updates[key] = getCleanCardPayload(card);
+
         });
+
         const targetRef = (detectedCardNode === '/') ? db.ref('/') : db.ref(detectedCardNode);
+
         targetRef.update(updates).then(() => {
+
           localStorage.removeItem(LS_PENDING_CARDS_SYNC);
+
           localStorage.removeItem(LS_DELETED_CARD_IDS);
+
           updateSyncStatusBanner(`🟢 Đã đồng bộ dữ liệu Offline lên Cloud (${cards.length} thẻ)`);
+
         });
+
       }
+
+
 
       if (localStorage.getItem(LS_PENDING_DIALOGUES_SYNC) === '1') {
+
         const obj = {};
+
         dialogues.forEach(d => obj[d.id] = d);
+
         dialoguesRef.set(obj).then(() => {
+
           localStorage.removeItem(LS_PENDING_DIALOGUES_SYNC);
+
         });
+
       }
+
     }
+
+
 
     window.addEventListener('online', () => {
+
       flushPendingOfflineChanges();
+
       updateSyncStatusBanner();
+
     });
+
     window.addEventListener('offline', () => {
+
       updateSyncStatusBanner();
+
     });
+
+
 
     if (rootRef) {
+
       rootRef.on('value', (snapshot) => {
+
         if (localStorage.getItem(LS_PENDING_CARDS_SYNC) === '1') {
+
           flushPendingOfflineChanges();
+
           return;
+
         }
+
+
 
         const rootData = snapshot.val();
-        availableBranches = {};
+
+        let bestBranchName = detectedCardNode;
+
+        let bestBranchItems = [];
+
+
 
         if (rootData && typeof rootData === 'object') {
+
           const directRootCards = Object.entries(rootData)
+
             .filter(([k]) => k !== 'taiwanese_dialogues')
+
             .map(([k, val]) => (val && (val.pinyin || val.traditional || val.hanzi || val.word)) ? normalizeLoadedCard(val, k) : null)
+
             .filter(Boolean);
 
+
+
           if (directRootCards.length > 0) {
-            availableBranches['/'] = directRootCards;
-          }
 
-          Object.keys(rootData).forEach((key) => {
-            if (key === 'taiwanese_dialogues') return;
-            const branch = rootData[key];
-            if (branch && typeof branch === 'object') {
-              const subItems = Object.entries(branch)
-                .map(([subKey, val]) => normalizeLoadedCard(val, subKey))
-                .filter(Boolean);
+            bestBranchName = '/';
 
-              if (subItems.length > 0) {
-                availableBranches[key] = subItems;
+            bestBranchItems = directRootCards;
+
+          } else {
+
+            Object.keys(rootData).forEach((key) => {
+
+              if (key === 'taiwanese_dialogues') return;
+
+              const branch = rootData[key];
+
+              if (branch && typeof branch === 'object') {
+
+                const subItems = Object.entries(branch)
+
+                  .map(([subKey, val]) => normalizeLoadedCard(val, subKey))
+
+                  .filter(Boolean);
+
+
+
+                if (subItems.length > bestBranchItems.length) {
+
+                  bestBranchItems = subItems;
+
+                  bestBranchName = key;
+
+                }
+
               }
-            }
-          });
+
+            });
+
+          }
+
         }
 
-        const branchKeys = Object.keys(availableBranches);
-        if (branchKeys.length > 0) {
-          // Ưu tiên nhánh đã lưu nếu vẫn có dữ liệu, hoặc chọn nhánh nhiều thẻ nhất (anki_cards 48 thẻ)
-          if (availableBranches['anki_cards'] && availableBranches['anki_cards'].length >= (availableBranches[detectedCardNode]?.length || 0)) {
-            detectedCardNode = 'anki_cards';
-          } else if (!availableBranches[detectedCardNode]) {
-            detectedCardNode = branchKeys.sort((a, b) => availableBranches[b].length - availableBranches[a].length)[0];
-          }
-          cards = deduplicateCards(availableBranches[detectedCardNode]);
+
+
+        if (bestBranchItems.length > 0) {
+
+          detectedCardNode = bestBranchName;
+
+          cards = deduplicateCards(bestBranchItems);
+
         }
+
+
 
         saveToLocalCache();
+
         updateSyncStatusBanner();
-        safeRenderStudyCard();
+
+        renderStudyCard();
+
         renderWordList();
+
       }, () => {
+
         updateSyncStatusBanner(`📴 Đang dùng bản lưu Offline (${cards.length} thẻ)`);
+
       });
+
     }
+
+
 
     if (dialoguesRef) {
+
       dialoguesRef.on('value', (snapshot) => {
+
         if (localStorage.getItem(LS_PENDING_DIALOGUES_SYNC) === '1') {
+
           flushPendingOfflineChanges();
+
           return;
+
         }
+
         const data = snapshot.val();
+
         if (data) {
+
           dialogues = Object.values(data).map(d => ({
+
             ...d,
+
             turns: Array.isArray(d.turns) ? d.turns : Object.values(d.turns || {})
+
           }));
+
           if (!dialogues.find(d => d.id == selectedDialogueId) && dialogues.length > 0) {
+
             selectedDialogueId = dialogues[0].id;
+
           }
+
           saveToLocalCache();
+
         }
+
         renderDialogueSelector();
+
         renderDialogueView();
+
       });
+
     }
+
+
 
     function createCard(traditional, pinyin, vietnamese, example) {
+
       const newId = Date.now();
+
       return {
+
         _firebaseKey: String(newId),
+
         id: newId,
+
         traditional,
+
         pinyin,
+
         vietnamese,
+
         example,
+
         dueTimestamp: newId,
-        nextReview: newId,
-        srsState: 'new',
-        srsStep: 0,
-        interval: 0,
-        easeFactor: 2.5,
-        lapses: 0
+
+        nextReview: newId
+
       };
+
     }
+
+
 
     function saveSingleCardToCloud(card) {
+
       saveToLocalCache();
+
       const key = card._firebaseKey || String(card.id);
+
       if (!db || !navigator.onLine) {
+
         localStorage.setItem(LS_PENDING_CARDS_SYNC, '1');
+
         updateSyncStatusBanner();
+
         return;
+
       }
+
+
 
       updateSyncStatusBanner('⏳ Đang lưu tiến độ lên Cloud...');
+
       const cardPath = (detectedCardNode === '/') ? ('/' + key) : (detectedCardNode + '/' + key);
+
       db.ref(cardPath).update(getCleanCardPayload(card))
+
         .then(() => updateSyncStatusBanner())
+
         .catch(() => {
+
           localStorage.setItem(LS_PENDING_CARDS_SYNC, '1');
+
           updateSyncStatusBanner();
+
         });
+
     }
+
+
 
     function deleteCardFromCloud(card) {
+
       saveToLocalCache();
+
       const key = card._firebaseKey || String(card.id);
+
       if (!db || !navigator.onLine) {
+
         localStorage.setItem(LS_PENDING_CARDS_SYNC, '1');
+
         const deletedIds = JSON.parse(localStorage.getItem(LS_DELETED_CARD_IDS) || '[]');
+
         deletedIds.push(key);
+
         localStorage.setItem(LS_DELETED_CARD_IDS, JSON.stringify(deletedIds));
+
         updateSyncStatusBanner();
+
         return;
+
       }
+
+
 
       const cardPath = (detectedCardNode === '/') ? ('/' + key) : (detectedCardNode + '/' + key);
+
       db.ref(cardPath).remove();
+
     }
+
+
 
     function saveDialoguesToCloud() {
+
       saveToLocalCache();
+
       renderDialogueSelector();
+
       renderDialogueView();
 
+
+
       if (!db || !navigator.onLine) {
+
         localStorage.setItem(LS_PENDING_DIALOGUES_SYNC, '1');
+
         updateSyncStatusBanner();
+
         return;
+
       }
+
+
 
       updateSyncStatusBanner('⏳ Đang lưu hội thoại lên Cloud...');
+
       const obj = {};
+
       dialogues.forEach(d => obj[d.id] = d);
+
       dialoguesRef.set(obj)
+
         .then(() => updateSyncStatusBanner())
+
         .catch(() => {
+
           localStorage.setItem(LS_PENDING_DIALOGUES_SYNC, '1');
+
           updateSyncStatusBanner();
+
         });
+
     }
+
+
 
     function getDueCards() {
+
       const now = Date.now();
+
       return cards.filter(card => {
+
         const due = resolveCardDueTime(card);
+
         return due <= now;
+
       }).sort((a, b) => resolveCardDueTime(a) - resolveCardDueTime(b));
+
     }
+
+
 
     function switchTab(tab) {
+
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
 
+
+
       if (tab === 'study') {
+
         document.querySelectorAll('.tab-btn')[0].classList.add('active');
+
         document.getElementById('studyView').classList.add('active');
-        safeRenderStudyCard();
+
+        renderStudyCard();
+
       } else if (tab === 'dialogue') {
+
         document.querySelectorAll('.tab-btn')[1].classList.add('active');
+
         document.getElementById('dialogueView').classList.add('active');
+
         renderDialogueSelector();
+
         renderDialogueView();
+
       } else {
+
         document.querySelectorAll('.tab-btn')[2].classList.add('active');
+
         document.getElementById('addView').classList.add('active');
+
         renderWordList();
+
       }
+
     }
+
+
 
     function extractHanziOnly(text) {
+
       if (!text) return '';
+
       const matches = String(text).match(/[\u4e00-\u9fff\u3400-\u4dbf，。！？、；：「」『』（）…—·]+/g);
+
       return matches ? matches.join(' ').trim() : '';
+
     }
 
+
+
     function speakTaiwanese(text, e, onEndCallback) {
+
       if (e) e.stopPropagation();
+
       if (!text || !('speechSynthesis' in window)) return;
+
+
 
       const hanziClean = extractHanziOnly(text) || String(text).trim();
 
+
+
       window.speechSynthesis.cancel();
+
       const utterance = new SpeechSynthesisUtterance(hanziClean);
+
       utterance.lang = 'zh-TW';
+
       utterance.rate = 0.92;
 
+
+
       const voices = window.speechSynthesis.getVoices();
+
       const twVoice = voices.find(v => v.lang === 'zh-TW' || v.lang.includes('TW') || v.name.includes('Taiwan'));
+
       if (twVoice) utterance.voice = twVoice;
+
       if (onEndCallback) utterance.onend = onEndCallback;
+
       window.speechSynthesis.speak(utterance);
+
     }
+
+
 
     function escapeHtml(str) {
+
       return String(str || '')
+
         .replace(/&/g, "&amp;")
+
         .replace(/</g, "&lt;")
+
         .replace(/>/g, "&gt;")
+
         .replace(/"/g, "&quot;")
+
         .replace(/'/g, "&#039;");
+
     }
 
+
+
     // ================= 3. CHẤM ĐIỂM THEO Ý CHÍNH =================
+
     const ZH_STOP_WORDS = new Set([
+
       '的', '了', '啊', '吧', '嗎', '呢', '喔', '呀', '哦', '啦', '嘛',
+
       '就', '也', '還', '都', '很', '太', '真', '好', '在', '是', '有',
+
       '我', '你', '您', '他', '她', '們', '這', '那', '個', '些', '把', '被',
+
       '一', '下', '過', '著', '起', '來', '去', '到', '給', '跟', '和', '與',
+
       '老', '師', '教', '授', '請', '問', '謝'
+
     ]);
 
+
+
     function evaluateFlexibleChinese(userInput, targetSample) {
+
       const cleanUser = String(userInput || '').replace(/[，。！？、,.!?；;：:"'“”‘’\s]/g, '').trim();
+
       const cleanTarget = String(targetSample || '').replace(/[，。！？、,.!?；;：:"'“”‘’\s]/g, '').trim();
+
+
 
       if (!cleanUser) return null;
 
+
+
       const targetChars = Array.from(cleanTarget);
+
       const userCharSet = new Set(Array.from(cleanUser));
 
+
+
       let coreTotal = 0;
+
       let coreMatched = 0;
+
       let highlightedSampleHtml = '';
 
+
+
       targetChars.forEach(ch => {
+
         const isStop = ZH_STOP_WORDS.has(ch);
+
         if (isStop) {
+
           highlightedSampleHtml += userCharSet.has(ch)
+
             ? `<span class="tok-hit">${escapeHtml(ch)}</span>`
+
             : `<span class="tok-stop">${escapeHtml(ch)}</span>`;
+
         } else {
+
           coreTotal++;
+
           if (userCharSet.has(ch)) {
+
             coreMatched++;
+
             highlightedSampleHtml += `<span class="tok-hit">${escapeHtml(ch)}</span>`;
+
           } else {
+
             highlightedSampleHtml += `<span class="tok-miss">${escapeHtml(ch)}</span>`;
+
           }
+
         }
+
       });
+
+
 
       if (coreTotal === 0) {
+
         coreTotal = targetChars.length;
+
         coreMatched = targetChars.filter(ch => userCharSet.has(ch)).length;
+
       }
+
+
 
       const ratio = coreTotal > 0 ? (coreMatched / coreTotal) : 0;
+
       const percent = Math.round(ratio * 100);
 
+
+
       let status = 'fail';
+
       if (cleanUser === cleanTarget || percent >= 60) {
+
         status = 'pass';
+
       } else if (percent >= 30) {
+
         status = 'partial';
+
       }
 
+
+
       return {
+
         status,
+
         percent,
+
         userRaw: userInput,
+
         highlightedSampleHtml
+
       };
+
     }
+
+
 
     function renderComparisonHtml(evalRes) {
+
       if (!evalRes) return '';
+
       let boxClass = 'compare-fail';
+
       let titleText = `❌ Chưa sát ý chính (${evalRes.percent}% từ khóa)`;
+
       if (evalRes.status === 'pass') {
+
         boxClass = 'compare-pass';
+
         titleText = `✅ Đạt ý & Đúng từ vựng chuẩn! (${evalRes.percent}% từ khóa cốt lõi)`;
+
       } else if (evalRes.status === 'partial') {
+
         boxClass = 'compare-partial';
+
         titleText = `⚠️ Đúng một phần ý (${evalRes.percent}% từ khóa cốt lõi)`;
+
       }
+
+
 
       return `
+
         <div class="compare-box ${boxClass}">
+
           <div class="compare-title"><span>${titleText}</span></div>
+
           <div class="compare-line"><strong>Bạn gõ:</strong> ${escapeHtml(evalRes.userRaw)}</div>
+
           <div class="compare-line"><strong>Đáp án mẫu:</strong> ${evalRes.highlightedSampleHtml}</div>
+
           <div style="font-size: 11px; color: var(--muted); margin-top: 5px;">
+
             *Chú thích: <span class="tok-hit">Xanh</span> = từ khóa đã dùng đúng | <span class="tok-miss">Vàng gạch chân</span> = từ khóa mẫu gợi ý thêm | Xám = từ đệm có thể lược bớt.
+
           </div>
+
         </div>
+
       `;
+
     }
 
-    // ================= 4. THUẬT TOÁN LẶP LẠI CHUẨN ANKI (SM-2) =================
-    const ANKI_MINUTE = 60 * 1000;
-    const ANKI_DAY = 24 * 60 * ANKI_MINUTE;
-    const ANKI_MAX_INTERVAL_DAYS = 365;
 
-    function formatAnkiDuration(ms) {
-      const mins = Math.round(ms / ANKI_MINUTE);
-      if (mins < 60) return `${Math.max(1, mins)} phút`;
-      const hours = Math.round(mins / 60);
-      if (hours < 24) return `${hours} tiếng`;
-      const days = Math.round(ms / ANKI_DAY);
-      if (days < 30) return `${days} ngày`;
-      const months = (days / 30).toFixed(1).replace(/\.0$/, '');
-      if (days < 365) return `${months} tháng`;
-      const years = (days / 365).toFixed(1).replace(/\.0$/, '');
-      return `${years} năm`;
+
+    // ================= 4. TAB 1: ÔN TẬP THẺ =================
+
+    function setStudyMode(mode) {
+
+      studyMode = mode;
+
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+
+      document.getElementById('mode-' + mode).classList.add('active');
+
+      currentCardKey = null;
+
+      isAnswerShown = false;
+
+      userTypedAnswer = '';
+
+      renderStudyCard();
+
     }
 
-    function calculateAnkiSM2Outcome(card, quality) {
-      const safeInterval = toSafeNumber(card.interval, 0);
-      let state = card.srsState || (safeInterval >= 1 ? 'review' : 'new');
-      let step = toSafeNumber(card.srsStep, 0);
-      let interval = safeInterval;
-      let easeFactor = Math.max(1.3, toSafeNumber(card.easeFactor, 2.5));
-      let lapses = toSafeNumber(card.lapses, 0);
-      let delayMs = 1 * ANKI_MINUTE;
 
-      if (state === 'new' || state === 'learning') {
-        if (quality === 0) {
-          state = 'learning';
-          step = 0;
-          delayMs = 1 * ANKI_MINUTE;
-        } else if (quality === 3) {
-          state = 'learning';
-          delayMs = 6 * ANKI_MINUTE;
-        } else if (quality === 4) {
-          if (step === 0) {
-            state = 'learning';
-            step = 1;
-            delayMs = 10 * ANKI_MINUTE;
-          } else {
-            state = 'review';
-            step = 0;
-            interval = 1;
-            delayMs = 1 * ANKI_DAY;
-          }
-        } else if (quality === 5) {
-          state = 'review';
-          step = 0;
-          interval = 4;
-          delayMs = 4 * ANKI_DAY;
-        }
-      } else if (state === 'relearning') {
-        if (quality === 0) {
-          delayMs = 10 * ANKI_MINUTE;
-        } else if (quality === 3) {
-          delayMs = 15 * ANKI_MINUTE;
-        } else if (quality === 4) {
-          state = 'review';
-          interval = Math.max(1, interval);
-          delayMs = interval * ANKI_DAY;
-        } else if (quality === 5) {
-          state = 'review';
-          interval = Math.max(2, interval + 1);
-          delayMs = interval * ANKI_DAY;
-        }
-      } else {
-        const curInt = Math.max(1, interval);
-        if (quality === 0) {
-          lapses += 1;
-          easeFactor = Math.max(1.3, Number((easeFactor - 0.20).toFixed(2)));
-          state = 'relearning';
-          step = 0;
-          interval = 1;
-          delayMs = 10 * ANKI_MINUTE;
-        } else if (quality === 3) {
-          easeFactor = Math.max(1.3, Number((easeFactor - 0.15).toFixed(2)));
-          interval = Math.min(ANKI_MAX_INTERVAL_DAYS, Math.max(curInt + 1, Math.round(curInt * 1.2)));
-          delayMs = interval * ANKI_DAY;
-        } else if (quality === 4) {
-          interval = Math.min(ANKI_MAX_INTERVAL_DAYS, Math.max(curInt + 1, Math.round(curInt * easeFactor)));
-          delayMs = interval * ANKI_DAY;
-        } else if (quality === 5) {
-          easeFactor = Number((easeFactor + 0.15).toFixed(2));
-          interval = Math.min(ANKI_MAX_INTERVAL_DAYS, Math.max(curInt + 2, Math.round(curInt * easeFactor * 1.3)));
-          delayMs = interval * ANKI_DAY;
-        }
-      }
-
-      return {
-        srsState: state,
-        srsStep: step,
-        interval,
-        easeFactor,
-        lapses,
-        delayMs,
-        label: formatAnkiDuration(delayMs)
-      };
-    }
 
     function updateCardSchedule(card, quality) {
-      const outcome = calculateAnkiSM2Outcome(card, quality);
-      const nextTime = Date.now() + outcome.delayMs;
 
-      card.srsState = outcome.srsState;
-      card.srsStep = outcome.srsStep;
-      card.interval = outcome.interval;
-      card.easeFactor = outcome.easeFactor;
-      card.lapses = outcome.lapses;
+      const MINUTE = 60 * 1000;
+
+      const HOUR = 60 * MINUTE;
+
+      const DAY = 24 * HOUR;
+
+
+
+      let offset = 10 * MINUTE;
+
+      if (quality === 0) offset = 10 * MINUTE;
+
+      else if (quality === 3) offset = 12 * HOUR;
+
+      else if (quality === 4) offset = 1 * DAY;
+
+      else if (quality === 5) offset = 2 * DAY;
+
+
+
+      const nextTime = Date.now() + offset;
+
       card.dueTimestamp = nextTime;
+
       card.nextReview = nextTime;
+
       return card;
+
     }
 
-    // ================= 5. TAB 1: ÔN TẬP THẺ =================
-    function setStudyMode(mode) {
-      studyMode = mode;
-      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-      document.getElementById('mode-' + mode).classList.add('active');
-      currentCardKey = null;
-      isAnswerShown = false;
-      userTypedAnswer = '';
-      safeRenderStudyCard();
-    }
+
 
     function handleRating(quality) {
+
       if (!currentCard) return;
+
       const updatedCard = updateCardSchedule(currentCard, quality);
+
       const index = cards.findIndex(c => String(c._firebaseKey || c.id) === String(currentCard._firebaseKey || currentCard.id));
+
       if (index !== -1) cards[index] = updatedCard;
 
+
+
       saveSingleCardToCloud(updatedCard);
+
       isAnswerShown = false;
+
       userTypedAnswer = '';
+
       currentCardKey = null;
-      safeRenderStudyCard();
+
+      renderStudyCard();
+
     }
+
+
 
     function checkTypedAnswer() {
+
       const inputEl = document.getElementById('userAnswerInput');
+
       if (inputEl) userTypedAnswer = inputEl.value.trim();
+
       isAnswerShown = true;
-      safeRenderStudyCard();
+
+      renderStudyCard();
+
       if (currentCard) {
+
         const targetZh = currentCard.traditional || currentCard.word || '';
+
         speakTaiwanese(targetZh);
+
       }
+
     }
 
-    function safeRenderStudyCard() {
-      try {
-        renderStudyCard();
-      } catch (err) {
-        console.error('Lỗi hiển thị thẻ:', err);
-        const container = document.getElementById('cardContainer');
-        if (container) {
-          container.innerHTML = `<div class="flashcard"><p style="color:#fca5a5;">Đã tự động khôi phục dữ liệu thẻ. Vui lòng bấm tải lại trang (F5).</p></div>`;
-        }
-      }
-    }
+
 
     function renderStudyCard() {
+
       const dueCards = getDueCards();
+
       const statBox = document.getElementById('statBox');
+
       const container = document.getElementById('cardContainer');
 
+
+
       const learnedCount = Math.max(0, cards.length - dueCards.length);
+
       statBox.textContent = `Cần ôn: ${dueCards.length} • Đã học: ${learnedCount} / Tổng: ${cards.length} thẻ`;
 
+
+
       if (dueCards.length === 0) {
+
         container.innerHTML = `
+
           <div class="flashcard">
+
             <h3>🎉 Bạn đã hoàn thành hết các thẻ đến hạn!</h3>
+
             <p style="color: var(--muted);">Chuyển sang tab "💬 Luyện Hội Thoại" để luyện đối đáp hoặc thêm từ mới.</p>
+
           </div>
+
         `;
+
         return;
+
       }
+
+
 
       currentCard = dueCards[0];
+
       const cardKey = String(currentCard._firebaseKey || currentCard.id);
-      const zhText = String(currentCard.traditional || currentCard.word || '');
-      const pyText = String(currentCard.pinyin || '');
-      const viText = String(currentCard.vietnamese || currentCard.meaning || '');
+
+      const zhText = currentCard.traditional || currentCard.word || '';
+
+      const pyText = currentCard.pinyin || '';
+
+      const viText = currentCard.vietnamese || currentCard.meaning || '';
+
       const exHanziOnly = extractHanziOnly(currentCard.example || '');
 
-      const previewAgain = calculateAnkiSM2Outcome(currentCard, 0).label;
-      const previewHard = calculateAnkiSM2Outcome(currentCard, 3).label;
-      const previewGood = calculateAnkiSM2Outcome(currentCard, 4).label;
-      const previewEasy = calculateAnkiSM2Outcome(currentCard, 5).label;
 
-      const safeInterval = toSafeNumber(currentCard.interval, 0);
-      const safeEf = Math.max(1.3, toSafeNumber(currentCard.easeFactor, 2.5));
-      const srsStateMap = {
-        new: 'Thẻ mới',
-        learning: 'Đang học',
-        relearning: 'Học lại',
-        review: `Ôn tập (${safeInterval || 1}d)`
-      };
-      const srsTagText = `${srsStateMap[currentCard.srsState || 'new'] || 'Thẻ mới'} • EF ${(safeEf * 100).toFixed(0)}%`;
 
       if (currentCardKey !== cardKey) {
+
         currentCardKey = cardKey;
+
         if (studyMode === 'audio') {
+
           setTimeout(() => speakTaiwanese(zhText), 200);
+
         }
+
       }
+
+
 
       let frontHtml = '';
+
       let placeholderText = '';
+
       if (studyMode === 'vi2zh') {
+
         frontHtml = `
-          <div class="card-meta-row">
-            <span class="mode-badge badge-vi">🇻🇳 Phản xạ: Gõ chữ Phồn thể</span>
-            <span class="srs-badge">${srsTagText}</span>
-          </div>
+
+          <span class="mode-badge badge-vi">🇻🇳 Phản xạ: Gõ chữ Phồn thể</span>
+
           <div class="front-prompt-vi">${escapeHtml(viText)}</div>
+
         `;
+
         placeholderText = 'Gõ ý chính bằng Chữ Phồn thể...';
+
       } else if (studyMode === 'audio') {
+
         frontHtml = `
-          <div class="card-meta-row">
-            <span class="mode-badge badge-audio">🎧 Nghe phản xạ (Giọng Đài Loan)</span>
-            <span class="srs-badge">${srsTagText}</span>
-          </div>
+
+          <span class="mode-badge badge-audio">🎧 Nghe phản xạ (Giọng Đài Loan)</span>
+
           <div class="front-prompt-audio">
+
             <button class="big-audio-btn" data-speak="${escapeHtml(zhText)}" onclick="speakTaiwanese(this.dataset.speak, event)">🔊</button>
+
           </div>
+
         `;
+
         placeholderText = 'Gõ lại Chữ Phồn thể hoặc Nghĩa...';
+
       } else {
+
         frontHtml = `
-          <div class="card-meta-row">
-            <span class="mode-badge badge-zh">🇹🇼 Đọc hiểu: Chữ Phồn thể</span>
-            <span class="srs-badge">${srsTagText}</span>
-          </div>
+
+          <span class="mode-badge badge-zh">🇹🇼 Đọc hiểu: Chữ Phồn thể</span>
+
           <div class="front-prompt-zh">${escapeHtml(zhText)}</div>
+
         `;
+
         placeholderText = 'Gõ Nghĩa tiếng Việt hoặc Pinyin...';
+
       }
+
+
 
       let comparisonHtml = '';
+
       if (isAnswerShown && userTypedAnswer) {
+
         const hasChineseChars = /[\u4e00-\u9fff]/.test(userTypedAnswer);
+
         if (hasChineseChars) {
+
           const evalRes = evaluateFlexibleChinese(userTypedAnswer, zhText);
+
           comparisonHtml = renderComparisonHtml(evalRes);
+
         } else {
+
           const cleanU = userTypedAnswer.toLowerCase().trim();
+
           const isMatch = pyText.toLowerCase().includes(cleanU) || viText.toLowerCase().includes(cleanU);
+
           comparisonHtml = `
+
             <div class="compare-box ${isMatch ? 'compare-pass' : 'compare-partial'}">
+
               <div class="compare-title">${isMatch ? '✅ Khớp nghĩa / Pinyin!' : 'ℹ️ Đối chiếu câu trả lời của bạn:'}</div>
+
               <div class="compare-line"><strong>Bạn gõ:</strong> ${escapeHtml(userTypedAnswer)}</div>
+
               <div class="compare-line"><strong>Mẫu:</strong> ${escapeHtml(zhText)} (${escapeHtml(pyText)})</div>
+
             </div>
+
           `;
+
         }
+
       }
+
+
 
       container.innerHTML = `
+
         <div class="flashcard">
+
           ${frontHtml}
 
+
+
           <div class="input-row">
+
             <input 
+
               type="text" 
+
               id="userAnswerInput" 
+
               class="answer-input" 
+
               value="${escapeHtml(userTypedAnswer)}"
+
               placeholder="${placeholderText}" 
+
               autocomplete="off"
+
               onkeydown="if(event.key === 'Enter') { event.preventDefault(); checkTypedAnswer(); }"
+
             >
+
             <button class="btn-check" onclick="checkTypedAnswer()">Kiểm tra</button>
+
           </div>
+
+
 
           ${!isAnswerShown ? `
+
             <div class="flip-hint" onclick="checkTypedAnswer()">↻ Bấm vào thẻ để lật xem đáp án</div>
+
           ` : `
+
             ${comparisonHtml}
 
+
+
             <div class="back-details">
+
               <div class="field-label">Chữ Phồn thể (Đáp án mẫu):</div>
+
               <div class="val-zh">
+
                 <span>${escapeHtml(zhText)}</span>
+
                 <button class="icon-audio" data-speak="${escapeHtml(zhText)}" onclick="speakTaiwanese(this.dataset.speak, event)">🔊</button>
+
               </div>
 
+
+
               <div class="field-label">Pinyin:</div>
+
               <div class="val-pinyin">${escapeHtml(pyText)}</div>
 
+
+
               <div class="field-label">Nghĩa tiếng Việt:</div>
+
               <div class="val-vi">(${escapeHtml(viText)})</div>
 
+
+
               ${exHanziOnly ? `
+
                 <div class="context-box">
+
                   <div class="context-header">
+
                     <span>❞ Ví dụ ngữ cảnh:</span>
+
                     <button class="icon-audio" data-speak="${escapeHtml(exHanziOnly)}" onclick="speakTaiwanese(this.dataset.speak, event)">🔊</button>
+
                   </div>
+
                   <div class="context-zh">${escapeHtml(exHanziOnly)}</div>
+
                 </div>
+
               ` : ''}
+
             </div>
+
           `}
+
         </div>
 
+
+
         ${isAnswerShown ? `
+
           <div class="rating-btns">
-            <button class="rate-btn again" onclick="handleRating(0)">Quên<br><small>${previewAgain}</small></button>
-            <button class="rate-btn hard" onclick="handleRating(3)">Khó<br><small>${previewHard}</small></button>
-            <button class="rate-btn good" onclick="handleRating(4)">Tốt<br><small>${previewGood}</small></button>
-            <button class="rate-btn easy" onclick="handleRating(5)">Dễ<br><small>${previewEasy}</small></button>
+
+            <button class="rate-btn again" onclick="handleRating(0)">Quên<br><small>10 phút</small></button>
+
+            <button class="rate-btn hard" onclick="handleRating(3)">Khó<br><small>12 tiếng</small></button>
+
+            <button class="rate-btn good" onclick="handleRating(4)">Tốt<br><small>1 ngày</small></button>
+
+            <button class="rate-btn easy" onclick="handleRating(5)">Dễ<br><small>2 ngày</small></button>
+
           </div>
+
         ` : ''}
+
       `;
 
+
+
       if (!isAnswerShown) {
+
         const inputEl = document.getElementById('userAnswerInput');
+
         if (inputEl) inputEl.focus();
+
       }
+
     }
 
-    // ================= 6. TAB 2: LUYỆN HỘI THOẠI =================
+
+
+    // ================= 5. TAB 2: LUYỆN HỘI THOẠI (SỬA TÊN, SỬA/XÓA TỪNG CÂU, SỬA CẢ BÀI) =================
+
     function renderDialogueSelector() {
+
       const select = document.getElementById('dialogueSelect');
+
       if (!select) return;
+
       select.innerHTML = dialogues.map(d =>
+
         `<option value="${d.id}" ${d.id == selectedDialogueId ? 'selected' : ''}>${escapeHtml(d.title)}</option>`
+
       ).join('');
+
     }
+
+
 
     function selectDialogue(id) {
+
       selectedDialogueId = Number(id);
+
       revealedTurns = {};
+
       turnTypedAnswers = {};
+
       editingTurnIndex = null;
+
       renderDialogueView();
+
     }
+
+
 
     function toggleRoleplayMode() {
+
       isRoleplayMode = !isRoleplayMode;
+
       revealedTurns = {};
+
       turnTypedAnswers = {};
+
       editingTurnIndex = null;
+
       const btn = document.getElementById('roleplayToggleBtn');
+
       btn.classList.toggle('active', isRoleplayMode);
+
       btn.textContent = isRoleplayMode ? '🎭 Đóng vai: ĐANG BẬT' : '🎭 Đóng vai: TẮT';
+
       renderDialogueView();
+
     }
+
+
 
     function submitTurnAnswer(idx) {
+
       const inputEl = document.getElementById(`turn-input-${idx}`);
+
       if (inputEl) {
+
         turnTypedAnswers[idx] = inputEl.value.trim();
+
       }
+
       revealTurn(idx);
+
     }
+
+
 
     function revealTurn(idx) {
+
       revealedTurns[idx] = true;
+
       renderDialogueView();
 
+
+
       const dialog = dialogues.find(d => d.id == selectedDialogueId);
+
       if (!dialog || !dialog.turns[idx]) return;
+
+
 
       const currentTurn = dialog.turns[idx];
+
       const nextTurn = dialog.turns[idx + 1];
 
+
+
       speakTaiwanese(currentTurn.zh, null, () => {
+
         if (nextTurn && !(nextTurn.speaker.toLowerCase().includes('bạn') || nextTurn.speaker.toLowerCase().includes('em'))) {
+
           setTimeout(() => speakTaiwanese(nextTurn.zh), 600);
+
         }
+
       });
+
     }
+
+
 
     function playFullDialogue() {
+
       const dialog = dialogues.find(d => d.id == selectedDialogueId);
+
       if (!dialog || !dialog.turns.length) return;
+
       let i = 0;
+
       function playNext() {
+
         if (i >= dialog.turns.length) return;
+
         const turn = dialog.turns[i];
+
         i++;
+
         speakTaiwanese(turn.zh, null, () => {
+
           setTimeout(playNext, 500);
+
         });
+
       }
+
       playNext();
+
     }
+
+
+
+    // Đổi tên chủ đề bài hội thoại hiện tại
 
     function renameCurrentDialogue() {
+
       const dialog = dialogues.find(d => d.id == selectedDialogueId);
+
       if (!dialog) return;
+
       const newTitle = prompt('Nhập tên mới cho chủ đề hội thoại:', dialog.title);
+
       if (newTitle !== null && newTitle.trim() !== '') {
+
         dialog.title = newTitle.trim();
+
         saveDialoguesToCloud();
+
       }
+
     }
+
+
+
+    // Mở khung chỉnh sửa từng câu thoại (turn)
 
     function startEditTurn(idx) {
+
       editingTurnIndex = idx;
+
       renderDialogueView();
+
     }
+
+
 
     function cancelEditTurn() {
+
       editingTurnIndex = null;
+
       renderDialogueView();
+
     }
+
+
 
     function saveEditedTurn(idx) {
+
       const dialog = dialogues.find(d => d.id == selectedDialogueId);
+
       if (!dialog || !dialog.turns[idx]) return;
 
+
+
       const speaker = document.getElementById(`edit-turn-speaker-${idx}`).value;
+
       const zh = document.getElementById(`edit-turn-zh-${idx}`).value.trim();
+
       const pinyin = document.getElementById(`edit-turn-py-${idx}`).value.trim();
+
       const vi = document.getElementById(`edit-turn-vi-${idx}`).value.trim();
 
+
+
       if (!zh) {
+
         alert('Nội dung chữ Phồn thể không được để trống!');
+
         return;
+
       }
+
+
 
       dialog.turns[idx] = { speaker, zh, pinyin, vi };
+
       editingTurnIndex = null;
+
       saveDialoguesToCloud();
+
     }
+
+
+
+    // Xóa 1 câu thoại bất kỳ bên trong bài hội thoại
 
     function deleteTurn(idx) {
+
       const dialog = dialogues.find(d => d.id == selectedDialogueId);
+
       if (!dialog) return;
+
       if (dialog.turns.length <= 1) {
+
         alert('Đoạn hội thoại phải có ít nhất 1 câu. Nếu muốn xóa hẳn bài này, hãy bấm nút "Xóa bài".');
+
         return;
+
       }
+
       if (confirm('Xóa câu thoại này khỏi đoạn hội thoại?')) {
+
         dialog.turns.splice(idx, 1);
+
         editingTurnIndex = null;
+
         revealedTurns = {};
+
         turnTypedAnswers = {};
+
         saveDialoguesToCloud();
+
       }
+
     }
+
+
+
+    // Đưa toàn bộ nội dung bài hội thoại hiện tại xuống form để chỉnh sửa hàng loạt
 
     function loadDialogueToFormForEdit() {
+
       const dialog = dialogues.find(d => d.id == selectedDialogueId);
+
       if (!dialog) return;
+
+
 
       document.getElementById('editDialogueId').value = dialog.id;
+
       document.getElementById('dialogTitle').value = dialog.title;
 
+
+
       const formattedLines = dialog.turns.map(t => {
+
         const sp = (t.speaker.toLowerCase().includes('bạn') || t.speaker.toLowerCase().includes('em')) ? 'Bạn' : 'Giáo sư';
+
         const pyPart = t.pinyin ? ` ${t.pinyin}` : '';
+
         const viPart = t.vi ? `(${t.vi})` : '';
+
         return `- ${sp}: ${t.zh}${pyPart}${viPart}`;
+
       }).join('\n');
 
+
+
       document.getElementById('dialogRawText').value = formattedLines;
+
       document.getElementById('dialogFormTitle').textContent = '✏️ Đang chỉnh sửa nội dung hội thoại';
+
       document.getElementById('saveDialogBtn').textContent = 'Cập nhật hội thoại';
+
       document.getElementById('cancelEditDialogBtn').style.display = 'block';
 
+
+
       document.getElementById('dialogueFormCard').scrollIntoView({ behavior: 'smooth' });
+
     }
+
+
 
     function resetDialogueForm() {
+
       document.getElementById('editDialogueId').value = '';
+
       document.getElementById('dialogTitle').value = '';
+
       document.getElementById('dialogRawText').value = '';
+
       document.getElementById('dialogFormTitle').textContent = '➕ Thêm đoạn hội thoại mới (Dán trực tiếp từ bài học)';
+
       document.getElementById('saveDialogBtn').textContent = 'Lưu hội thoại (Offline & Cloud)';
+
       document.getElementById('cancelEditDialogBtn').style.display = 'none';
+
     }
+
+
 
     function deleteCurrentDialogue() {
+
       if (dialogues.length <= 1) {
+
         alert('Cần giữ lại ít nhất 1 đoạn hội thoại mẫu.');
+
         return;
+
       }
+
       if (confirm('Xóa toàn bộ đoạn hội thoại này?')) {
+
         dialogues = dialogues.filter(d => d.id != selectedDialogueId);
+
         selectedDialogueId = dialogues[0].id;
+
         editingTurnIndex = null;
+
         resetDialogueForm();
+
         saveDialoguesToCloud();
+
       }
+
     }
 
+
+
     function renderDialogueView() {
+
       const container = document.getElementById('dialogueContainer');
+
       const dialog = dialogues.find(d => d.id == selectedDialogueId) || dialogues[0];
+
       if (!dialog) return;
 
+
+
       const turnsList = dialog.turns || [];
+
       let visibleLimit = turnsList.length - 1;
+
       if (isRoleplayMode) {
+
         for (let i = 0; i < turnsList.length; i++) {
+
           const isYouTurn = turnsList[i].speaker.toLowerCase().includes('bạn') || turnsList[i].speaker.toLowerCase().includes('em');
+
           if (isYouTurn && !revealedTurns[i]) {
+
             visibleLimit = i;
+
             break;
+
           }
+
         }
+
       }
+
+
 
       const visibleTurns = turnsList.slice(0, visibleLimit + 1);
 
+
+
       const turnsHtml = visibleTurns.map((turn, idx) => {
+
         const isYou = turn.speaker.toLowerCase().includes('bạn') || turn.speaker.toLowerCase().includes('em');
+
         const shouldHide = isRoleplayMode && isYou && !revealedTurns[idx];
+
         const isEditingThis = (editingTurnIndex === idx);
 
+
+
         let turnCompareHtml = '';
+
         if (isYou && revealedTurns[idx] && turnTypedAnswers[idx]) {
+
           const evalRes = evaluateFlexibleChinese(turnTypedAnswers[idx], turn.zh);
+
           turnCompareHtml = renderComparisonHtml(evalRes);
+
         }
+
+
 
         if (isEditingThis) {
+
           return `
+
             <div class="bubble-row ${isYou ? 'bubble-you' : 'bubble-prof'}">
+
               <div class="speaker-tag">✏️ Đang sửa lượt thoại #${idx + 1}</div>
+
               <div class="turn-edit-box">
+
                 <select id="edit-turn-speaker-${idx}">
+
                   <option value="Bạn" ${isYou ? 'selected' : ''}>🧑‍💻 Bạn (Sinh viên)</option>
+
                   <option value="Giáo sư" ${!isYou ? 'selected' : ''}>👨‍🏫 Giáo sư Đài Loan</option>
+
                 </select>
+
                 <input type="text" id="edit-turn-zh-${idx}" value="${escapeHtml(turn.zh)}" placeholder="Chữ Phồn thể">
+
                 <input type="text" id="edit-turn-py-${idx}" value="${escapeHtml(turn.pinyin || '')}" placeholder="Pinyin (tùy chọn)">
+
                 <input type="text" id="edit-turn-vi-${idx}" value="${escapeHtml(turn.vi || '')}" placeholder="Nghĩa tiếng Việt (tùy chọn)">
+
                 <div style="display:flex; gap:6px; justify-content:flex-end;">
+
                   <button class="btn-action" style="background:#475569;" onclick="cancelEditTurn()">Hủy</button>
+
                   <button class="btn-action" style="background:var(--primary);" onclick="saveEditedTurn(${idx})">Lưu câu này</button>
+
                 </div>
+
               </div>
+
             </div>
+
           `;
+
         }
 
+
+
         return `
+
           <div class="bubble-row ${isYou ? 'bubble-you' : 'bubble-prof'}">
+
             <div class="speaker-tag">${isYou ? '🧑‍💻 Bạn (Sinh viên)' : '👨‍🏫 Giáo sư Đài Loan'}</div>
+
             <div class="bubble">
+
               ${shouldHide ? `
+
                 <div class="b-vi" style="color: #86efac; font-style: normal; font-weight: bold;">
+
                   🇻🇳 Gợi ý dàn ý: "${escapeHtml(turn.vi)}"
+
                 </div>
+
                 <div class="roleplay-mask">
+
                   <div style="font-size: 12px; color: var(--muted);">Gõ ý chính bằng Chữ Phồn thể (không cần đúng 100% từng chữ):</div>
+
                   <div class="roleplay-input-row">
+
                     <input 
+
                       type="text" 
+
                       id="turn-input-${idx}"
+
                       class="roleplay-input" 
+
                       placeholder="vd: 老師，執行程式一直報錯..." 
+
                       onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitTurnAnswer(${idx}); }"
+
                     >
+
                     <button class="btn-check" style="padding: 8px 14px; font-size: 13px;" onclick="submitTurnAnswer(${idx})">Kiểm tra</button>
+
                   </div>
+
                   <button class="btn-reveal-turn" onclick="revealTurn(${idx})">👁️ Bỏ qua & Hiện đáp án</button>
+
                 </div>
+
               ` : `
+
                 ${turnCompareHtml}
+
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+
                   <div class="b-zh">${escapeHtml(turn.zh)}</div>
+
                   <div class="bubble-toolbar">
+
                     <button class="icon-audio" data-speak="${escapeHtml(turn.zh)}" onclick="speakTaiwanese(this.dataset.speak, event)" title="Nghe câu này">🔊</button>
+
                     <button class="icon-mini-btn" onclick="startEditTurn(${idx})" title="Sửa câu thoại này">✏️</button>
+
                     <button class="icon-mini-btn icon-mini-del" onclick="deleteTurn(${idx})" title="Xóa câu thoại này">🗑️</button>
+
                   </div>
+
                 </div>
+
                 ${turn.pinyin ? `<div class="b-py">${escapeHtml(turn.pinyin)}</div>` : ''}
+
                 ${turn.vi ? `<div class="b-vi">(${escapeHtml(turn.vi)})</div>` : ''}
+
               `}
+
             </div>
+
           </div>
+
         `;
+
       }).join('');
+
+
 
       const remainingCount = turnsList.length - visibleTurns.length;
+
       const footerHtml = isRoleplayMode ? (
+
         remainingCount > 0
+
           ? `<div class="progress-hint">⏳ Hoàn thành lượt trên để mở tiếp ${remainingCount} lượt hội thoại phía sau...</div>`
+
           : `<div class="progress-hint" style="color:#86efac;">🎉 Đã hoàn thành toàn bộ đoạn hội thoại! <button class="btn-reveal-turn" style="margin-left:8px;" onclick="revealedTurns={}; turnTypedAnswers={}; renderDialogueView();">🔄 Luyện lại từ đầu</button></div>`
+
       ) : '';
 
+
+
       container.innerHTML = `
+
         <div class="chat-box">
+
           <div class="chat-header">
+
             <div class="chat-title">${escapeHtml(dialog.title)}</div>
+
             <div class="chat-header-actions">
+
               <button class="btn-action btn-edit" onclick="renameCurrentDialogue()" title="Đổi tên chủ đề">✏️ Sửa tên</button>
+
               <button class="btn-action" style="background:#0284c7;" onclick="loadDialogueToFormForEdit()" title="Sửa toàn bộ nội dung bài">📝 Sửa cả bài</button>
+
               <button class="btn-action btn-delete" onclick="deleteCurrentDialogue()" title="Xóa bài hội thoại này">Xóa bài</button>
+
             </div>
+
           </div>
+
           ${turnsHtml}
+
           ${footerHtml}
+
         </div>
+
       `;
 
+
+
       if (isRoleplayMode && editingTurnIndex === null) {
+
         const activeInput = document.getElementById(`turn-input-${visibleLimit}`);
+
         if (activeInput) activeInput.focus();
+
       }
+
     }
+
+
 
     function saveParsedDialogue() {
+
       const title = document.getElementById('dialogTitle').value.trim() || ('Hội thoại ' + new Date().toLocaleDateString());
+
       const raw = document.getElementById('dialogRawText').value.trim();
+
       const editId = document.getElementById('editDialogueId').value;
+
       if (!raw) return;
 
+
+
       const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+
       const turns = [];
 
+
+
       lines.forEach(line => {
+
         const match = line.match(/^-?\s*(Bạn|Giáo sư|Thầy|Em)\s*:\s*(.+)$/i);
+
         if (match) {
+
           const speaker = match[1];
+
           let rest = match[2].trim();
 
+
+
           let vi = '';
+
           const viMatch = rest.match(/\(([^()]+)\)\s*$/);
+
           if (viMatch) {
+
             vi = viMatch[1].trim();
+
             rest = rest.slice(0, viMatch.index).trim();
+
           }
+
+
 
           let zh = rest;
+
           let pinyin = '';
+
           const zhEndMatch = rest.match(/^(.*[。！？!?])/);
+
           if (zhEndMatch) {
+
             zh = zhEndMatch[1].trim();
+
             pinyin = rest.slice(zh.length).trim();
+
           }
 
+
+
           turns.push({ speaker, zh, pinyin, vi });
+
         }
+
       });
 
+
+
       if (turns.length === 0) {
+
         alert('Không nhận diện được câu thoại. Hãy đảm bảo mỗi dòng bắt đầu bằng "- Bạn:" hoặc "- Giáo sư:" nhé!');
+
         return;
+
       }
+
+
 
       if (editId) {
+
         const idx = dialogues.findIndex(d => String(d.id) === String(editId));
+
         if (idx !== -1) {
+
           dialogues[idx].title = title;
+
           dialogues[idx].turns = turns;
+
           selectedDialogueId = dialogues[idx].id;
+
         }
+
       } else {
+
         const newDialog = {
+
           id: Date.now(),
+
           title,
+
           turns
+
         };
+
         dialogues.push(newDialog);
+
         selectedDialogueId = newDialog.id;
+
       }
+
+
 
       revealedTurns = {};
+
       turnTypedAnswers = {};
+
       editingTurnIndex = null;
+
       resetDialogueForm();
+
       saveDialoguesToCloud();
+
       alert(editId ? 'Đã cập nhật đoạn hội thoại!' : 'Đã lưu đoạn hội thoại thành công!');
+
     }
 
-    // ================= 7. TAB 3: QUẢN LÝ TỪ VỰNG =================
+
+
+    // ================= 6. TAB 3: QUẢN LÝ TỪ VỰNG =================
+
     function renderWordList() {
+
       const container = document.getElementById('wordListContainer');
+
       document.getElementById('totalWordCount').textContent = cards.length;
 
+
+
       if (cards.length === 0) {
+
         container.innerHTML = '<div style="text-align:center; color:var(--muted); padding:15px;">Chưa có từ vựng nào trong danh sách.</div>';
+
         return;
+
       }
 
+
+
       const sortedCards = [...cards].reverse();
-      container.innerHTML = sortedCards.map(card => {
-        const dueMs = resolveCardDueTime(card) - Date.now();
-        const dueLabel = dueMs <= 0 ? 'Đến hạn ôn ngay' : `Nhắc sau ${formatAnkiDuration(dueMs)}`;
-        return `
-          <div class="word-item">
-            <div class="word-info">
-              <div class="word-zh">${escapeHtml(card.traditional || card.word)}</div>
-              <div class="word-py">${escapeHtml(card.pinyin)}</div>
-              <div class="word-vi">${escapeHtml(card.vietnamese || card.meaning)}</div>
-              <div class="word-srs-tag">⏱️ ${dueLabel} • Chu kỳ: ${toSafeNumber(card.interval, 0)} ngày</div>
-            </div>
-            <div class="word-actions">
-              <button class="btn-action btn-edit" onclick="editCard('${escapeHtml(card._firebaseKey || card.id)}')">Sửa</button>
-              <button class="btn-action btn-delete" onclick="deleteCard('${escapeHtml(card._firebaseKey || card.id)}')">Xóa</button>
-            </div>
+
+      container.innerHTML = sortedCards.map(card => `
+
+        <div class="word-item">
+
+          <div class="word-info">
+
+            <div class="word-zh">${escapeHtml(card.traditional || card.word)}</div>
+
+            <div class="word-py">${escapeHtml(card.pinyin)}</div>
+
+            <div class="word-vi">${escapeHtml(card.vietnamese || card.meaning)}</div>
+
           </div>
-        `;
-      }).join('');
+
+          <div class="word-actions">
+
+            <button class="btn-action btn-edit" onclick="editCard('${escapeHtml(card._firebaseKey || card.id)}')">Sửa</button>
+
+            <button class="btn-action btn-delete" onclick="deleteCard('${escapeHtml(card._firebaseKey || card.id)}')">Xóa</button>
+
+          </div>
+
+        </div>
+
+      `).join('');
+
     }
 
+
+
     document.getElementById('addCardForm').addEventListener('submit', (e) => {
+
       e.preventDefault();
+
       const traditional = document.getElementById('traditional').value.trim();
+
       const pinyin = document.getElementById('pinyin').value.trim();
+
       const vietnamese = document.getElementById('vietnamese').value.trim();
+
       const example = document.getElementById('example').value.trim();
+
       const editKey = document.getElementById('editCardId').value;
+
+
 
       if (!traditional || !vietnamese) return;
 
+
+
       if (editKey) {
+
         const index = cards.findIndex(c => String(c._firebaseKey || c.id) === String(editKey));
+
         if (index !== -1) {
+
           cards[index].traditional = traditional;
+
           cards[index].pinyin = pinyin;
+
           cards[index].vietnamese = vietnamese;
+
           cards[index].example = example;
+
           saveSingleCardToCloud(cards[index]);
+
         }
+
       } else {
+
         const newCard = createCard(traditional, pinyin, vietnamese, example);
+
         cards = deduplicateCards([...cards, newCard]);
+
         saveSingleCardToCloud(newCard);
+
       }
+
+
 
       resetForm();
+
       renderWordList();
-      safeRenderStudyCard();
+
+      renderStudyCard();
+
     });
 
+
+
     function editCard(key) {
+
       const card = cards.find(c => String(c._firebaseKey || c.id) === String(key));
+
       if (!card) return;
 
+
+
       document.getElementById('editCardId').value = card._firebaseKey || card.id;
+
       document.getElementById('traditional').value = card.traditional || card.word || '';
+
       document.getElementById('pinyin').value = card.pinyin || '';
+
       document.getElementById('vietnamese').value = card.vietnamese || card.meaning || '';
+
       document.getElementById('example').value = card.example || '';
 
+
+
       document.getElementById('formTitle').textContent = 'Chỉnh sửa từ vựng';
+
       document.getElementById('submitBtn').textContent = 'Lưu thay đổi';
+
       document.getElementById('cancelEditBtn').style.display = 'block';
 
+
+
       window.scrollTo({ top: 0, behavior: 'smooth' });
+
     }
+
+
 
     function deleteCard(key) {
+
       if (confirm('Bạn có chắc chắn muốn xóa từ này?')) {
+
         const targetCard = cards.find(c => String(c._firebaseKey || c.id) === String(key));
+
         cards = cards.filter(c => String(c._firebaseKey || c.id) !== String(key));
+
         if (targetCard) deleteCardFromCloud(targetCard);
+
         renderWordList();
-        safeRenderStudyCard();
+
+        renderStudyCard();
+
       }
+
     }
+
+
 
     function resetForm() {
+
       document.getElementById('editCardId').value = '';
+
       document.getElementById('traditional').value = '';
+
       document.getElementById('pinyin').value = '';
+
       document.getElementById('vietnamese').value = '';
+
       document.getElementById('example').value = '';
 
+
+
       document.getElementById('formTitle').textContent = 'Thêm từ vựng mới';
+
       document.getElementById('submitBtn').textContent = 'Lưu vào bộ thẻ (Offline & Cloud)';
+
       document.getElementById('cancelEditBtn').style.display = 'none';
+
     }
+
   </script>
+
 </body>
+
 </html>
