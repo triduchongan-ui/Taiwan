@@ -60,9 +60,17 @@
       box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
       margin-bottom: 18px;
     }
+    .card-meta-row {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 8px;
+    }
     .mode-badge {
       display: inline-block; font-size: 11px; font-weight: bold; padding: 4px 10px;
-      border-radius: 999px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;
+      border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .srs-badge {
+      display: inline-block; font-size: 11px; font-weight: 600; padding: 4px 9px;
+      border-radius: 999px; background: rgba(148, 163, 184, 0.14); color: #cbd5e1;
+      border: 1px solid var(--border);
     }
     .badge-zh { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); }
     .badge-vi { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); }
@@ -127,7 +135,8 @@
     .icon-mini-del:hover { background: rgba(239, 68, 68, 0.25); border-color: var(--danger); color: #fca5a5; }
 
     .rating-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .rate-btn { padding: 12px 6px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; font-size: 14px; }
+    .rate-btn { padding: 12px 6px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; font-size: 14px; line-height: 1.35; }
+    .rate-btn small { font-weight: 500; opacity: 0.92; font-size: 12px; }
     .again { background: #ef4444; }
     .hard { background: #f97316; }
     .good { background: #3b82f6; }
@@ -161,6 +170,7 @@
     .word-zh { font-weight: bold; color: white; font-size: 17px; }
     .word-py { color: var(--pinyin); font-size: 13px; }
     .word-vi { color: var(--vietnamese); font-size: 14px; }
+    .word-srs-tag { font-size: 11px; color: var(--muted); margin-top: 3px; }
     .word-actions { display: flex; gap: 6px; }
     .btn-action { padding: 6px 10px; border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; font-weight: bold; }
     .btn-edit { background: var(--warning); }
@@ -511,7 +521,13 @@
         pinyin: rawItem.pinyin || rawItem.py || '',
         vietnamese: vi || '',
         example: rawItem.example || rawItem.context || '',
-        dueTimestamp: resolveCardDueTime(rawItem)
+        dueTimestamp: resolveCardDueTime(rawItem),
+        // Chuẩn hóa thông số Anki SM-2 nếu thẻ cũ chưa có
+        srsState: rawItem.srsState || ((rawItem.interval || 0) >= 1 ? 'review' : 'new'),
+        srsStep: typeof rawItem.srsStep === 'number' ? rawItem.srsStep : 0,
+        interval: typeof rawItem.interval === 'number' ? rawItem.interval : 0,
+        easeFactor: typeof rawItem.easeFactor === 'number' ? rawItem.easeFactor : 2.5,
+        lapses: typeof rawItem.lapses === 'number' ? rawItem.lapses : 0
       };
     }
 
@@ -520,6 +536,11 @@
       delete payload._firebaseKey;
       payload.dueTimestamp = card.dueTimestamp || Date.now();
       payload.nextReview = payload.dueTimestamp;
+      payload.srsState = card.srsState || 'new';
+      payload.srsStep = typeof card.srsStep === 'number' ? card.srsStep : 0;
+      payload.interval = typeof card.interval === 'number' ? card.interval : 0;
+      payload.easeFactor = typeof card.easeFactor === 'number' ? card.easeFactor : 2.5;
+      payload.lapses = typeof card.lapses === 'number' ? card.lapses : 0;
       return payload;
     }
 
@@ -647,7 +668,12 @@
         vietnamese,
         example,
         dueTimestamp: newId,
-        nextReview: newId
+        nextReview: newId,
+        srsState: 'new',
+        srsStep: 0,
+        interval: 0,
+        easeFactor: 2.5,
+        lapses: 0
       };
     }
 
@@ -855,7 +881,135 @@
       `;
     }
 
-    // ================= 4. TAB 1: ÔN TẬP THẺ =================
+    // ================= 4. THUẬT TOÁN LẶP LẠI CHUẨN ANKI (SM-2) =================
+    const ANKI_MINUTE = 60 * 1000;
+    const ANKI_DAY = 24 * 60 * ANKI_MINUTE;
+    const ANKI_MAX_INTERVAL_DAYS = 365; // Tối đa 365 ngày
+
+    function formatAnkiDuration(ms) {
+      const mins = Math.round(ms / ANKI_MINUTE);
+      if (mins < 60) return `${Math.max(1, mins)} phút`;
+      const hours = Math.round(mins / 60);
+      if (hours < 24) return `${hours} tiếng`;
+      const days = Math.round(ms / ANKI_DAY);
+      if (days < 30) return `${days} ngày`;
+      const months = (days / 30).toFixed(1).replace(/\.0$/, '');
+      if (days < 365) return `${months} tháng`;
+      const years = (days / 365).toFixed(1).replace(/\.0$/, '');
+      return `${years} năm`;
+    }
+
+    /**
+     * Tính toán lịch nhắc lại theo thuật toán SM-2 chuẩn của Anki
+     * quality: 0 = Again (Quên), 3 = Hard (Khó), 4 = Good (Tốt), 5 = Easy (Dễ)
+     */
+    function calculateAnkiSM2Outcome(card, quality) {
+      let state = card.srsState || ((card.interval || 0) >= 1 ? 'review' : 'new');
+      let step = typeof card.srsStep === 'number' ? card.srsStep : 0;
+      let interval = typeof card.interval === 'number' ? card.interval : 0;
+      let easeFactor = typeof card.easeFactor === 'number' ? card.easeFactor : 2.5;
+      let lapses = typeof card.lapses === 'number' ? card.lapses : 0;
+      let delayMs = 1 * ANKI_MINUTE;
+
+      if (state === 'new' || state === 'learning') {
+        // Giai đoạn học mới (Learning Steps mặc định: 1m -> 10m -> tốt nghiệp 1 ngày)
+        if (quality === 0) {
+          // Again: 1 phút
+          state = 'learning';
+          step = 0;
+          delayMs = 1 * ANKI_MINUTE;
+        } else if (quality === 3) {
+          // Hard: 6 phút
+          state = 'learning';
+          delayMs = 6 * ANKI_MINUTE;
+        } else if (quality === 4) {
+          // Good: Bước 0 -> 10 phút; Bước 1 -> Tốt nghiệp 1 ngày
+          if (step === 0) {
+            state = 'learning';
+            step = 1;
+            delayMs = 10 * ANKI_MINUTE;
+          } else {
+            state = 'review';
+            step = 0;
+            interval = 1;
+            delayMs = 1 * ANKI_DAY;
+          }
+        } else if (quality === 5) {
+          // Easy: Tốt nghiệp ngay lên 4 ngày
+          state = 'review';
+          step = 0;
+          interval = 4;
+          delayMs = 4 * ANKI_DAY;
+        }
+      } else if (state === 'relearning') {
+        // Giai đoạn học lại sau khi quên từ đã thuộc (Relearning: 10m -> 1 ngày)
+        if (quality === 0) {
+          delayMs = 10 * ANKI_MINUTE;
+        } else if (quality === 3) {
+          delayMs = 15 * ANKI_MINUTE;
+        } else if (quality === 4) {
+          state = 'review';
+          interval = Math.max(1, interval);
+          delayMs = interval * ANKI_DAY;
+        } else if (quality === 5) {
+          state = 'review';
+          interval = Math.max(2, interval + 1);
+          delayMs = interval * ANKI_DAY;
+        }
+      } else {
+        // Giai đoạn ôn tập dài hạn (Graduated / Review)
+        const curInt = Math.max(1, interval);
+        if (quality === 0) {
+          // Again: Giảm Ease Factor -0.20, đưa về Relearning (10 phút), reset mốc ngày về 1 ngày
+          lapses += 1;
+          easeFactor = Math.max(1.3, +(easeFactor - 0.20).toFixed(2));
+          state = 'relearning';
+          step = 0;
+          interval = 1;
+          delayMs = 10 * ANKI_MINUTE;
+        } else if (quality === 3) {
+          // Hard: Interval * 1.2, giảm Ease Factor -0.15
+          easeFactor = Math.max(1.3, +(easeFactor - 0.15).toFixed(2));
+          interval = Math.min(ANKI_MAX_INTERVAL_DAYS, Math.max(curInt + 1, Math.round(curInt * 1.2)));
+          delayMs = interval * ANKI_DAY;
+        } else if (quality === 4) {
+          // Good: Interval * Ease Factor (2.5)
+          interval = Math.min(ANKI_MAX_INTERVAL_DAYS, Math.max(curInt + 1, Math.round(curInt * easeFactor)));
+          delayMs = interval * ANKI_DAY;
+        } else if (quality === 5) {
+          // Easy: Interval * Ease Factor * 1.3, tăng Ease Factor +0.15
+          easeFactor = +(easeFactor + 0.15).toFixed(2);
+          interval = Math.min(ANKI_MAX_INTERVAL_DAYS, Math.max(curInt + 2, Math.round(curInt * easeFactor * 1.3)));
+          delayMs = interval * ANKI_DAY;
+        }
+      }
+
+      return {
+        srsState: state,
+        srsStep: step,
+        interval,
+        easeFactor,
+        lapses,
+        delayMs,
+        label: formatAnkiDuration(delayMs)
+      };
+    }
+
+    function updateCardSchedule(card, quality) {
+      const outcome = calculateAnkiSM2Outcome(card, quality);
+      const nextTime = Date.now() + outcome.delayMs;
+
+      card.srsState = outcome.srsState;
+      card.srsStep = outcome.srsStep;
+      card.interval = outcome.interval;
+      card.easeFactor = outcome.easeFactor;
+      card.lapses = outcome.lapses;
+      card.dueTimestamp = nextTime;
+      card.nextReview = nextTime;
+      return card;
+    }
+
+    // ================= 5. TAB 1: ÔN TẬP THẺ =================
     function setStudyMode(mode) {
       studyMode = mode;
       document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
@@ -864,23 +1018,6 @@
       isAnswerShown = false;
       userTypedAnswer = '';
       renderStudyCard();
-    }
-
-    function updateCardSchedule(card, quality) {
-      const MINUTE = 60 * 1000;
-      const HOUR = 60 * MINUTE;
-      const DAY = 24 * HOUR;
-
-      let offset = 10 * MINUTE;
-      if (quality === 0) offset = 10 * MINUTE;
-      else if (quality === 3) offset = 12 * HOUR;
-      else if (quality === 4) offset = 1 * DAY;
-      else if (quality === 5) offset = 2 * DAY;
-
-      const nextTime = Date.now() + offset;
-      card.dueTimestamp = nextTime;
-      card.nextReview = nextTime;
-      return card;
     }
 
     function handleRating(quality) {
@@ -932,6 +1069,20 @@
       const viText = currentCard.vietnamese || currentCard.meaning || '';
       const exHanziOnly = extractHanziOnly(currentCard.example || '');
 
+      // Dự tính trước nhãn thời gian chuẩn Anki cho 4 nút
+      const previewAgain = calculateAnkiSM2Outcome(currentCard, 0).label;
+      const previewHard = calculateAnkiSM2Outcome(currentCard, 3).label;
+      const previewGood = calculateAnkiSM2Outcome(currentCard, 4).label;
+      const previewEasy = calculateAnkiSM2Outcome(currentCard, 5).label;
+
+      const srsStateMap = {
+        new: 'Thẻ mới',
+        learning: 'Đang học',
+        relearning: 'Học lại',
+        review: `Ôn tập (${currentCard.interval || 1}d)`
+      };
+      const srsTagText = `${srsStateMap[currentCard.srsState || 'new'] || 'Thẻ mới'} • EF ${((currentCard.easeFactor || 2.5) * 100).toFixed(0)}%`;
+
       if (currentCardKey !== cardKey) {
         currentCardKey = cardKey;
         if (studyMode === 'audio') {
@@ -943,13 +1094,19 @@
       let placeholderText = '';
       if (studyMode === 'vi2zh') {
         frontHtml = `
-          <span class="mode-badge badge-vi">🇻🇳 Phản xạ: Gõ chữ Phồn thể</span>
+          <div class="card-meta-row">
+            <span class="mode-badge badge-vi">🇻🇳 Phản xạ: Gõ chữ Phồn thể</span>
+            <span class="srs-badge">${srsTagText}</span>
+          </div>
           <div class="front-prompt-vi">${escapeHtml(viText)}</div>
         `;
         placeholderText = 'Gõ ý chính bằng Chữ Phồn thể...';
       } else if (studyMode === 'audio') {
         frontHtml = `
-          <span class="mode-badge badge-audio">🎧 Nghe phản xạ (Giọng Đài Loan)</span>
+          <div class="card-meta-row">
+            <span class="mode-badge badge-audio">🎧 Nghe phản xạ (Giọng Đài Loan)</span>
+            <span class="srs-badge">${srsTagText}</span>
+          </div>
           <div class="front-prompt-audio">
             <button class="big-audio-btn" data-speak="${escapeHtml(zhText)}" onclick="speakTaiwanese(this.dataset.speak, event)">🔊</button>
           </div>
@@ -957,7 +1114,10 @@
         placeholderText = 'Gõ lại Chữ Phồn thể hoặc Nghĩa...';
       } else {
         frontHtml = `
-          <span class="mode-badge badge-zh">🇹🇼 Đọc hiểu: Chữ Phồn thể</span>
+          <div class="card-meta-row">
+            <span class="mode-badge badge-zh">🇹🇼 Đọc hiểu: Chữ Phồn thể</span>
+            <span class="srs-badge">${srsTagText}</span>
+          </div>
           <div class="front-prompt-zh">${escapeHtml(zhText)}</div>
         `;
         placeholderText = 'Gõ Nghĩa tiếng Việt hoặc Pinyin...';
@@ -1032,10 +1192,10 @@
 
         ${isAnswerShown ? `
           <div class="rating-btns">
-            <button class="rate-btn again" onclick="handleRating(0)">Quên<br><small>10 phút</small></button>
-            <button class="rate-btn hard" onclick="handleRating(3)">Khó<br><small>12 tiếng</small></button>
-            <button class="rate-btn good" onclick="handleRating(4)">Tốt<br><small>1 ngày</small></button>
-            <button class="rate-btn easy" onclick="handleRating(5)">Dễ<br><small>2 ngày</small></button>
+            <button class="rate-btn again" onclick="handleRating(0)">Quên<br><small>${previewAgain}</small></button>
+            <button class="rate-btn hard" onclick="handleRating(3)">Khó<br><small>${previewHard}</small></button>
+            <button class="rate-btn good" onclick="handleRating(4)">Tốt<br><small>${previewGood}</small></button>
+            <button class="rate-btn easy" onclick="handleRating(5)">Dễ<br><small>${previewEasy}</small></button>
           </div>
         ` : ''}
       `;
@@ -1046,7 +1206,7 @@
       }
     }
 
-    // ================= 5. TAB 2: LUYỆN HỘI THOẠI (SỬA TÊN, SỬA/XÓA TỪNG CÂU, SỬA CẢ BÀI) =================
+    // ================= 6. TAB 2: LUYỆN HỘI THOẠI =================
     function renderDialogueSelector() {
       const select = document.getElementById('dialogueSelect');
       if (!select) return;
@@ -1114,7 +1274,6 @@
       playNext();
     }
 
-    // Đổi tên chủ đề bài hội thoại hiện tại
     function renameCurrentDialogue() {
       const dialog = dialogues.find(d => d.id == selectedDialogueId);
       if (!dialog) return;
@@ -1125,7 +1284,6 @@
       }
     }
 
-    // Mở khung chỉnh sửa từng câu thoại (turn)
     function startEditTurn(idx) {
       editingTurnIndex = idx;
       renderDialogueView();
@@ -1155,7 +1313,6 @@
       saveDialoguesToCloud();
     }
 
-    // Xóa 1 câu thoại bất kỳ bên trong bài hội thoại
     function deleteTurn(idx) {
       const dialog = dialogues.find(d => d.id == selectedDialogueId);
       if (!dialog) return;
@@ -1172,7 +1329,6 @@
       }
     }
 
-    // Đưa toàn bộ nội dung bài hội thoại hiện tại xuống form để chỉnh sửa hàng loạt
     function loadDialogueToFormForEdit() {
       const dialog = dialogues.find(d => d.id == selectedDialogueId);
       if (!dialog) return;
@@ -1401,7 +1557,7 @@
       alert(editId ? 'Đã cập nhật đoạn hội thoại!' : 'Đã lưu đoạn hội thoại thành công!');
     }
 
-    // ================= 6. TAB 3: QUẢN LÝ TỪ VỰNG =================
+    // ================= 7. TAB 3: QUẢN LÝ TỪ VỰNG =================
     function renderWordList() {
       const container = document.getElementById('wordListContainer');
       document.getElementById('totalWordCount').textContent = cards.length;
@@ -1412,19 +1568,24 @@
       }
 
       const sortedCards = [...cards].reverse();
-      container.innerHTML = sortedCards.map(card => `
-        <div class="word-item">
-          <div class="word-info">
-            <div class="word-zh">${escapeHtml(card.traditional || card.word)}</div>
-            <div class="word-py">${escapeHtml(card.pinyin)}</div>
-            <div class="word-vi">${escapeHtml(card.vietnamese || card.meaning)}</div>
+      container.innerHTML = sortedCards.map(card => {
+        const dueMs = resolveCardDueTime(card) - Date.now();
+        const dueLabel = dueMs <= 0 ? 'Đến hạn ôn ngay' : `Nhắc sau ${formatAnkiDuration(dueMs)}`;
+        return `
+          <div class="word-item">
+            <div class="word-info">
+              <div class="word-zh">${escapeHtml(card.traditional || card.word)}</div>
+              <div class="word-py">${escapeHtml(card.pinyin)}</div>
+              <div class="word-vi">${escapeHtml(card.vietnamese || card.meaning)}</div>
+              <div class="word-srs-tag">⏱️ ${dueLabel} • Chu kỳ: ${card.interval || 0} ngày</div>
+            </div>
+            <div class="word-actions">
+              <button class="btn-action btn-edit" onclick="editCard('${escapeHtml(card._firebaseKey || card.id)}')">Sửa</button>
+              <button class="btn-action btn-delete" onclick="deleteCard('${escapeHtml(card._firebaseKey || card.id)}')">Xóa</button>
+            </div>
           </div>
-          <div class="word-actions">
-            <button class="btn-action btn-edit" onclick="editCard('${escapeHtml(card._firebaseKey || card.id)}')">Sửa</button>
-            <button class="btn-action btn-delete" onclick="deleteCard('${escapeHtml(card._firebaseKey || card.id)}')">Xóa</button>
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     document.getElementById('addCardForm').addEventListener('submit', (e) => {
